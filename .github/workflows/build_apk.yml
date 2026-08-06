@@ -23,18 +23,19 @@ jobs:
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '9.3.1'
 
       - name: Prepare Build Files
         run: |
           touch .env
           mkdir -p ~/.android
           if [ -f debug.keystore.base64 ]; then
-            (base64 -d -i debug.keystore.base64 > ~/.android/debug.keystore) || (base64 -d debug.keystore.base64 > ~/.android/debug.keystore) || true
+            base64 -d debug.keystore.base64 > ~/.android/debug.keystore
           fi
-          chmod +x gradlew || true
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
