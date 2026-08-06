@@ -1,0 +1,6 @@
+{
+  "name": "Elite Mind",
+  "description": "Train your reaction, memory, focus, and reasoning speed",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
