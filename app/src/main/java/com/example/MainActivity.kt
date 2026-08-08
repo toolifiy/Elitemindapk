@@ -305,14 +305,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val configuration = androidx.compose.ui.platform.LocalConfiguration.current
             val currentDensity = androidx.compose.ui.platform.LocalDensity.current
-            val cappedDensity = androidx.compose.ui.unit.Density(
-                density = currentDensity.density,
-                fontScale = currentDensity.fontScale.coerceAtMost(1.08f)
+            val screenWidthDp = configuration.screenWidthDp
+            val targetWidthDp = 390f
+            val scaleFactor = if (screenWidthDp in 1..389) {
+                (screenWidthDp.toFloat() / targetWidthDp).coerceIn(0.80f, 1.0f)
+            } else {
+                1.0f
+            }
+            val adaptiveDensity = androidx.compose.ui.unit.Density(
+                density = currentDensity.density * scaleFactor,
+                fontScale = (currentDensity.fontScale * scaleFactor).coerceAtMost(1.05f)
             )
             androidx.compose.runtime.CompositionLocalProvider(
                 androidx.compose.foundation.LocalOverscrollConfiguration provides null,
-                androidx.compose.ui.platform.LocalDensity provides cappedDensity
+                androidx.compose.ui.platform.LocalDensity provides adaptiveDensity
             ) {
                 MyApplicationTheme {
                     HomeScreen()
@@ -465,7 +473,7 @@ fun HomeScreen() {
 
     Scaffold(
         containerColor = CyberBackground,
-        contentWindowInsets = WindowInsets.safeDrawing,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         bottomBar = {
             BottomNavBar(
                 selectedTab = selectedTab,
@@ -496,12 +504,14 @@ fun HomeScreen() {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.statusBars)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = adaptiveHorizontalPadding, vertical = adaptiveVerticalPadding),
+                    .padding(vertical = adaptiveVerticalPadding),
                 verticalArrangement = Arrangement.spacedBy(adaptiveItemSpacing)
             ) {
                 // Top Bar
                 TopBarSection(
+                    horizontalPadding = adaptiveHorizontalPadding,
                     onClick = { selectedTab = "PROFILE" },
                     onSettingsClick = { showSettingsDialog = true },
                     tokens = userTokens,
@@ -514,78 +524,78 @@ fun HomeScreen() {
 
                 if (selectedCategoryView != null) {
                     // Category-Specific Games Interface View with Swipeable Games Carousel
-                    CategoryGamesInterface(
-                        categoryKey = selectedCategoryView!!,
-                        onBackClick = { selectedCategoryView = null },
-                        onPlayReactionSpeed = {
-                            tryStartGame {
-                                reactionInitialGame = "SPEED_REFLEX"
-                                showReactionGameDialog = true
+                    Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
+                        CategoryGamesInterface(
+                            categoryKey = selectedCategoryView!!,
+                            onBackClick = { selectedCategoryView = null },
+                            onPlayReactionSpeed = {
+                                tryStartGame {
+                                    reactionInitialGame = "SPEED_REFLEX"
+                                    showReactionGameDialog = true
+                                }
+                            },
+                            onPlayArrowClick = {
+                                tryStartGame {
+                                    reactionInitialGame = "ARROW_CLICK"
+                                    showReactionGameDialog = true
+                                }
+                            },
+                            onPlayMemoryGame = {
+                                tryStartGame { showMemoryGameDialog = true }
+                            },
+                            onPlayMathGame = {
+                                tryStartGame { showMathGameDialog = true }
+                            },
+                            onPlayDotConnect = {
+                                tryStartGame { showDotConnectGameDialog = true }
+                            },
+                            onPlayTicTacToe = {
+                                tryStartGame { showTicTacToeGameDialog = true }
                             }
-                        },
-                        onPlayArrowClick = {
-                            tryStartGame {
-                                reactionInitialGame = "ARROW_CLICK"
-                                showReactionGameDialog = true
-                            }
-                        },
-                        onPlayMemoryGame = {
-                            tryStartGame { showMemoryGameDialog = true }
-                        },
-                        onPlayMathGame = {
-                            tryStartGame { showMathGameDialog = true }
-                        },
-                        onPlayDotConnect = {
-                            tryStartGame { showDotConnectGameDialog = true }
-                        },
-                        onPlayTicTacToe = {
-                            tryStartGame { showTicTacToeGameDialog = true }
-                        }
-                    )
+                        )
+                    }
                 } else {
                     when (selectedTab) {
                         "PROFILE" -> {
                             // Dedicated Profile Screen View
-                            ProfileTabScreen(
-                                userName = userName,
-                                userBio = userBio,
-                                userEmoji = userEmoji,
-                                onSaveProfile = { newName, newBio, newEmoji ->
-                                    updateProfile(newName, newBio, newEmoji)
-                                },
-                                onPlayMathGame = { tryStartGame { showMathGameDialog = true } },
-                                onOpenSettings = { showSettingsDialog = true },
-                                gameHistory = gameHistory
-                            )
+                            Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
+                                ProfileTabScreen(
+                                    userName = userName,
+                                    userBio = userBio,
+                                    userEmoji = userEmoji,
+                                    onSaveProfile = { newName, newBio, newEmoji ->
+                                        updateProfile(newName, newBio, newEmoji)
+                                    },
+                                    onPlayMathGame = { tryStartGame { showMathGameDialog = true } },
+                                    onOpenSettings = { showSettingsDialog = true },
+                                    gameHistory = gameHistory
+                                )
+                            }
                         }
                         "BATTLE" -> {
                             // Dedicated 2-Player Battle Arena View
-                            BattleTabScreen(
-                                onSaveBattleHistory = { record ->
-                                    gameHistory.add(0, record)
-                                },
-                                onTryStartGame = tryStartGame
-                            )
+                            Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
+                                BattleTabScreen(
+                                    onSaveBattleHistory = { record ->
+                                        gameHistory.add(0, record)
+                                    },
+                                    onTryStartGame = tryStartGame
+                                )
+                            }
                         }
                         "PROGRESS" -> {
                             // Dedicated Progress & Saved History View
-                            ProgressTabScreen(
-                                gameHistory = gameHistory,
-                                onPlayMathGame = { tryStartGame { showMathGameDialog = true } }
-                            )
+                            Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
+                                ProgressTabScreen(
+                                    gameHistory = gameHistory,
+                                    onPlayMathGame = { tryStartGame { showMathGameDialog = true } }
+                                )
+                            }
                         }
                         "GAMES" -> {
                             // Dedicated Games View when GAMES tab is selected
-                            Text(
-                                text = "GAME CATEGORIES",
-                                color = TextPrimary,
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.5.sp,
-                                modifier = Modifier.padding(top = 4.dp)
-                            )
-
                             GamesInterfaceSection(
+                                horizontalPadding = adaptiveHorizontalPadding,
                                 onClick = showSoonToast,
                                 onMathClick = { tryStartGame { showMathGameDialog = true } },
                                 onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
@@ -614,13 +624,20 @@ fun HomeScreen() {
                         }
                         else -> {
                             // 1. Level Progress Fillbar Card
-                            LevelProgressCard(onClick = { selectedTab = "PROGRESS" })
+                            LevelProgressCard(
+                                horizontalPadding = adaptiveHorizontalPadding,
+                                onClick = { selectedTab = "PROGRESS" }
+                            )
 
                             // 2. Swipeable Offer Banners Carousel
-                            OfferBannersCarousel(onClick = { tryStartGame { showMathGameDialog = true } })
+                            OfferBannersCarousel(
+                                horizontalPadding = adaptiveHorizontalPadding,
+                                onClick = { tryStartGame { showMathGameDialog = true } }
+                            )
 
                             // Brain Games Section Grid
                             TrainYourBrainSection(
+                                horizontalPadding = adaptiveHorizontalPadding,
                                 onClick = showSoonToast,
                                 onMathClick = { tryStartGame { showMathGameDialog = true } },
                                 onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
@@ -642,7 +659,10 @@ fun HomeScreen() {
                             )
 
                             // Daily Challenge Section
-                            DailyChallengeCard(onClick = { tryStartGame { showMathGameDialog = true } })
+                            DailyChallengeCard(
+                                horizontalPadding = adaptiveHorizontalPadding,
+                                onClick = { tryStartGame { showMathGameDialog = true } }
+                            )
                         }
                     }
                 }
@@ -655,6 +675,7 @@ fun HomeScreen() {
 
 @Composable
 fun TopBarSection(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
     onClick: () -> Unit,
     onSettingsClick: () -> Unit = onClick,
     tokens: Int = 20,
@@ -665,7 +686,7 @@ fun TopBarSection(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 0.dp),
+            .padding(horizontal = horizontalPadding, vertical = 0.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -776,20 +797,28 @@ fun TopBarSection(
 }
 
 @Composable
-fun LevelProgressCard(onClick: () -> Unit) {
-    Card(
+fun LevelProgressCard(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    onClick: () -> Unit
+) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(
-                width = 1.dp,
-                color = CyberCardBorder,
-                shape = RoundedCornerShape(16.dp)
-            )
-            .clickable { onClick() }
-            .testTag("level_progress_card"),
-        colors = CardDefaults.cardColors(containerColor = CyberSurface)
+            .padding(horizontal = horizontalPadding)
     ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .border(
+                    width = 1.dp,
+                    color = CyberCardBorder,
+                    shape = RoundedCornerShape(16.dp)
+                )
+                .clickable { onClick() }
+                .testTag("level_progress_card"),
+            colors = CardDefaults.cardColors(containerColor = CyberSurface)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -855,9 +884,13 @@ fun LevelProgressCard(onClick: () -> Unit) {
         }
     }
 }
+}
 
 @Composable
-fun OfferBannersCarousel(onClick: () -> Unit) {
+fun OfferBannersCarousel(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    onClick: () -> Unit
+) {
     val listState = rememberLazyListState()
     val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
 
@@ -865,7 +898,7 @@ fun OfferBannersCarousel(onClick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 2.dp),
+                .padding(horizontal = horizontalPadding, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -889,8 +922,9 @@ fun OfferBannersCarousel(onClick: () -> Unit) {
         LazyRow(
             state = listState,
             flingBehavior = snapFlingBehavior,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(end = 8.dp)
+            contentPadding = PaddingValues(horizontal = horizontalPadding)
         ) {
             // Quest Banner 1: STARTER QUEST (from screenshot style)
             item {
@@ -1234,15 +1268,23 @@ fun StreakCardBadge(count: String, label: String) {
 
 
 @Composable
-fun DailyChallengeCard(onClick: () -> Unit) {
-    Card(
+fun DailyChallengeCard(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    onClick: () -> Unit
+) {
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .clickable { onClick() }
-            .testTag("daily_challenge_card"),
-        colors = CardDefaults.cardColors(containerColor = CyberSurface)
+            .padding(horizontal = horizontalPadding)
     ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .clickable { onClick() }
+                .testTag("daily_challenge_card"),
+            colors = CardDefaults.cardColors(containerColor = CyberSurface)
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1376,6 +1418,7 @@ fun DailyChallengeCard(onClick: () -> Unit) {
             }
         }
     }
+}
 }
 
 data class LeaderboardUser(
@@ -3090,6 +3133,7 @@ fun CategoryGameCardItem(
 
 @Composable
 fun TrainYourBrainSection(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
     onClick: () -> Unit,
     onMathClick: () -> Unit = {},
     onMemoryClick: () -> Unit = {},
@@ -3104,7 +3148,7 @@ fun TrainYourBrainSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 2.dp),
+                .padding(horizontal = horizontalPadding, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -3134,7 +3178,9 @@ fun TrainYourBrainSection(
             // 2-column Grid Layout (2 per row stacked vertically)
             Column(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = horizontalPadding)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -3211,8 +3257,9 @@ fun TrainYourBrainSection(
             LazyRow(
                 state = listState,
                 flingBehavior = snapFlingBehavior,
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(end = 8.dp)
+                contentPadding = PaddingValues(horizontal = horizontalPadding)
             ) {
                 item {
                     CategoryCard(
@@ -3281,6 +3328,7 @@ fun TrainYourBrainSection(
 
 @Composable
 fun GamesInterfaceSection(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
     onClick: () -> Unit,
     onMathClick: () -> Unit = {},
     onMemoryClick: () -> Unit = {},
@@ -3298,7 +3346,7 @@ fun GamesInterfaceSection(
             fontSize = 14.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.5.sp,
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)
         )
 
         val listState1 = rememberLazyListState()
@@ -3307,8 +3355,9 @@ fun GamesInterfaceSection(
         LazyRow(
             state = listState1,
             flingBehavior = snapFlingBehavior1,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(end = 16.dp)
+            contentPadding = PaddingValues(horizontal = horizontalPadding)
         ) {
             item {
                 GameBannerCard(
@@ -3365,7 +3414,7 @@ fun GamesInterfaceSection(
             fontSize = 14.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.5.sp,
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)
         )
 
         val listState2 = rememberLazyListState()
@@ -3374,8 +3423,9 @@ fun GamesInterfaceSection(
         LazyRow(
             state = listState2,
             flingBehavior = snapFlingBehavior2,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(end = 16.dp)
+            contentPadding = PaddingValues(horizontal = horizontalPadding)
         ) {
             item {
                 GameBannerCard(
@@ -3432,7 +3482,7 @@ fun GamesInterfaceSection(
             fontSize = 14.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.5.sp,
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = horizontalPadding, vertical = 8.dp)
         )
 
         val listState3 = rememberLazyListState()
@@ -3441,8 +3491,9 @@ fun GamesInterfaceSection(
         LazyRow(
             state = listState3,
             flingBehavior = snapFlingBehavior3,
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            contentPadding = PaddingValues(end = 16.dp)
+            contentPadding = PaddingValues(horizontal = horizontalPadding)
         ) {
             item {
                 GameBannerCard(
