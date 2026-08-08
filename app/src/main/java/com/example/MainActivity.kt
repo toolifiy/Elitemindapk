@@ -1,5 +1,6 @@
 package com.example
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -13,6 +14,8 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -32,6 +35,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -57,6 +63,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.key
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -325,6 +332,23 @@ fun HomeScreen() {
     var userTokens by rememberSaveable { mutableIntStateOf(20) }
     var showOutOfTokensDialog by remember { mutableStateOf(false) }
 
+    // User Profile persistent state
+    val profilePrefs = remember { context.getSharedPreferences("user_profile_prefs", Context.MODE_PRIVATE) }
+    var userName by remember { mutableStateOf(profilePrefs.getString("user_name", "Sameer Choudhary") ?: "Sameer Choudhary") }
+    var userBio by remember { mutableStateOf(profilePrefs.getString("user_bio", "🧠 Cyber Mind Gamer") ?: "🧠 Cyber Mind Gamer") }
+    var userEmoji by remember { mutableStateOf(profilePrefs.getString("user_emoji", "👑") ?: "👑") }
+
+    fun updateProfile(newName: String, newBio: String, newEmoji: String) {
+        userName = newName
+        userBio = newBio
+        userEmoji = newEmoji
+        profilePrefs.edit()
+            .putString("user_name", newName)
+            .putString("user_bio", newBio)
+            .putString("user_emoji", newEmoji)
+            .apply()
+    }
+
     // Helper to start a game by deducting 1 token or showing out-of-tokens alert
     val tryStartGame: (() -> Unit) -> Unit = { action ->
         if (userTokens > 0) {
@@ -434,6 +458,7 @@ fun HomeScreen() {
 
     Scaffold(
         containerColor = CyberBackground,
+        contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
             BottomNavBar(
                 selectedTab = selectedTab,
@@ -462,7 +487,9 @@ fun HomeScreen() {
                 tokens = userTokens,
                 onTokensClick = {
                     Toast.makeText(context, "⚡ Tokens: $userTokens/20 available (1 Token per game)", Toast.LENGTH_SHORT).show()
-                }
+                },
+                userName = userName,
+                userEmoji = userEmoji
             )
 
             if (selectedCategoryView != null) {
@@ -500,6 +527,12 @@ fun HomeScreen() {
                     "PROFILE" -> {
                         // Dedicated Profile Screen View
                         ProfileTabScreen(
+                            userName = userName,
+                            userBio = userBio,
+                            userEmoji = userEmoji,
+                            onSaveProfile = { newName, newBio, newEmoji ->
+                                updateProfile(newName, newBio, newEmoji)
+                            },
                             onPlayMathGame = { tryStartGame { showMathGameDialog = true } },
                             onOpenSettings = { showSettingsDialog = true },
                             gameHistory = gameHistory
@@ -604,7 +637,9 @@ fun TopBarSection(
     onClick: () -> Unit,
     onSettingsClick: () -> Unit = onClick,
     tokens: Int = 20,
-    onTokensClick: () -> Unit = {}
+    onTokensClick: () -> Unit = {},
+    userName: String = "Sameer Choudhary",
+    userEmoji: String = "👑"
 ) {
     Row(
         modifier = Modifier
@@ -640,11 +675,9 @@ fun TopBarSection(
                         .background(CyberSurface),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "User Avatar",
-                        tint = NeonCyan,
-                        modifier = Modifier.size(22.dp)
+                    Text(
+                        text = userEmoji,
+                        fontSize = 20.sp
                     )
                 }
             }
@@ -652,21 +685,14 @@ fun TopBarSection(
             Spacer(modifier = Modifier.width(8.dp))
 
             Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.MilitaryTech,
-                        contentDescription = "Rank Icon",
-                        tint = NeonPurpleBright,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Elite Mind",
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                Text(
+                    text = userName,
+                    color = TextPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
 
@@ -1341,18 +1367,10 @@ data class LeaderboardUser(
 )
 
 @Composable
-fun XpLeaderboardCard() {
-    val leaderboardList = remember {
-        listOf(
-            LeaderboardUser(1, "Aarav Sharma", "👑", 18450, 42),
-            LeaderboardUser(2, "Sameer Choudhary", "⚡", 15200, 36, isUser = true),
-            LeaderboardUser(3, "Priya Verma", "🥈", 13900, 31),
-            LeaderboardUser(4, "Vikram Patel", "🥉", 11450, 27),
-            LeaderboardUser(5, "Ananya Roy", "🎯", 9800, 22),
-            LeaderboardUser(6, "Rohan Das", "🔥", 8350, 18)
-        )
-    }
-
+fun XpLeaderboardCard(
+    currentUserName: String = "Sameer Choudhary",
+    currentUserEmoji: String = "⚡"
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1399,7 +1417,7 @@ fun XpLeaderboardCard() {
                             letterSpacing = 0.5.sp
                         )
                         Text(
-                            text = "Top Players Ranked by XP (ग्लोबल रैंक)",
+                            text = "Top Players Ranked by XP",
                             color = TextSecondary,
                             fontSize = 11.sp
                         )
@@ -1413,7 +1431,7 @@ fun XpLeaderboardCard() {
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        text = "RANK #2",
+                        text = "GLOBAL",
                         color = NeonGold,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -1426,109 +1444,31 @@ fun XpLeaderboardCard() {
                 thickness = 1.dp
             )
 
-            // Leaderboard Items List
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                leaderboardList.forEach { item ->
-                    val isHighlight = item.isUser
-                    val rankBg = when (item.rank) {
-                        1 -> NeonGold.copy(alpha = 0.2f)
-                        2 -> NeonCyan.copy(alpha = 0.2f)
-                        3 -> NeonPurpleBright.copy(alpha = 0.2f)
-                        else -> CyberSurfaceVariant
-                    }
-                    val rankColor = when (item.rank) {
-                        1 -> NeonGold
-                        2 -> NeonCyan
-                        3 -> NeonPurpleBright
-                        else -> TextMuted
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(if (isHighlight) NeonCyan.copy(alpha = 0.15f) else CyberSurfaceVariant)
-                            .border(
-                                width = if (isHighlight) 1.5.dp else 1.dp,
-                                color = if (isHighlight) NeonCyan else CyberCardBorder,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            // Rank Number Box
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(rankBg),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "#${item.rank}",
-                                    color = rankColor,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            Text(
-                                text = item.avatarEmoji,
-                                fontSize = 18.sp
-                            )
-
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            Column {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = item.name,
-                                        color = if (isHighlight) NeonCyan else TextPrimary,
-                                        fontSize = 13.sp,
-                                        fontWeight = if (isHighlight) FontWeight.Black else FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    if (isHighlight) {
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "(YOU)",
-                                            color = NeonGreen,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = "Lvl ${item.level}",
-                                    color = TextMuted,
-                                    fontSize = 10.sp
-                                )
-                            }
-                        }
-
-                        // XP Badge
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(CyberBackground)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            Text(
-                                text = "⚡ ${item.xp} XP",
-                                color = if (isHighlight) NeonGreen else NeonYellow,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
-                    }
+            // Notice: Placed below title row with correct English grammar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(NeonGold.copy(alpha = 0.12f))
+                    .border(1.dp, NeonGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "🔒 THIS FEATURE IS COMING SOON",
+                        color = NeonGold,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.8.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Online multiplayer rankings & global leaderboards will be available in the upcoming update!",
+                        color = TextSecondary,
+                        fontSize = 11.sp,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
@@ -3878,6 +3818,7 @@ fun BottomNavBar(
         modifier = Modifier
             .fillMaxWidth()
             .background(CyberSurface)
+            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
         // Top divider line for navigation bar border
         HorizontalDivider(
@@ -3888,7 +3829,6 @@ fun BottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(WindowInsets.navigationBars.asPaddingValues())
                 .padding(horizontal = 4.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
@@ -3955,14 +3895,21 @@ fun GameSettingsDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Card(
+        Box(
             modifier = Modifier
-                .fillMaxWidth(0.92f)
-                .padding(vertical = 16.dp)
-                .clip(RoundedCornerShape(24.dp))
-                .border(1.5.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
-            colors = CardDefaults.cardColors(containerColor = CyberSurface)
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+            contentAlignment = Alignment.Center
         ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .fillMaxHeight(0.85f)
+                    .padding(vertical = 12.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .border(1.5.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                colors = CardDefaults.cardColors(containerColor = CyberSurface)
+            ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4315,6 +4262,7 @@ fun GameSettingsDialog(onDismiss: () -> Unit) {
             }
         }
     }
+}
 }
 
 @Composable
@@ -6045,6 +5993,7 @@ fun MathGameDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.85f))
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -6492,23 +6441,53 @@ fun MemoryGameDialog(
         }
     }
 
-    // Dynamic grid size and target states managed by AI Adaptive Engine
-    var rows by remember { mutableStateOf(4) }
-    var cols by remember { mutableStateOf(4) }
-    var targetCount by remember { mutableStateOf(4) }
+    // Dynamic level & infinite procedural grid progression (Matiks style)
     var level by remember { mutableStateOf(1) }
     var score by remember { mutableStateOf(0) }
     var mistakes by remember { mutableStateOf(0) }
     val maxMistakes = 3
 
-    var consecutiveWins by remember { mutableStateOf(0) }
-    var consecutiveLosses by remember { mutableStateOf(0) }
-    var aiMessage by remember { mutableStateOf("🤖 AI Adaptive: सक्रिय है! आपके गेमप्ले के अनुसार कठिनाई खुद बदलेगी।") }
+    var rows by remember { mutableStateOf(3) }
+    var cols by remember { mutableStateOf(3) }
+    var targetCount by remember { mutableStateOf(3) }
 
     var isGameOver by remember { mutableStateOf(false) }
+    var showGameOverPopup by remember { mutableStateOf(false) }
+    var showExitConfirmationDialog by remember { mutableStateOf(false) }
+    var isDisappearing by remember { mutableStateOf(false) }
     var hasSavedHistory by remember { mutableStateOf(false) }
 
-    val totalCells = rows * cols
+    // Procedural Infinite Level Generation Engine (Progression over 100 levels)
+    fun updateGridForLevel(lvl: Int) {
+        when {
+            lvl in 1..3 -> { rows = 3; cols = 3; targetCount = 3 }
+            lvl in 4..7 -> { rows = 3; cols = 3; targetCount = 4 }
+            lvl in 8..10 -> { rows = 3; cols = 3; targetCount = 5 }
+            lvl in 11..15 -> { rows = 3; cols = 4; targetCount = 4 }
+            lvl in 16..20 -> { rows = 3; cols = 4; targetCount = 5 }
+            lvl in 21..25 -> { rows = 4; cols = 4; targetCount = 5 }
+            lvl in 26..30 -> { rows = 4; cols = 4; targetCount = 6 }
+            lvl in 31..35 -> { rows = 4; cols = 5; targetCount = 6 }
+            lvl in 36..40 -> { rows = 4; cols = 5; targetCount = 7 }
+            lvl in 41..45 -> { rows = 5; cols = 5; targetCount = 7 }
+            lvl in 46..50 -> { rows = 5; cols = 5; targetCount = 8 }
+            lvl in 51..55 -> { rows = 5; cols = 6; targetCount = 8 }
+            lvl in 56..60 -> { rows = 5; cols = 6; targetCount = 9 }
+            lvl in 61..65 -> { rows = 6; cols = 6; targetCount = 10 }
+            lvl in 66..70 -> { rows = 6; cols = 6; targetCount = 12 }
+            lvl in 71..75 -> { rows = 6; cols = 7; targetCount = 12 }
+            lvl in 76..80 -> { rows = 6; cols = 7; targetCount = 14 }
+            lvl in 81..85 -> { rows = 7; cols = 7; targetCount = 15 }
+            lvl in 86..90 -> { rows = 7; cols = 7; targetCount = 17 }
+            lvl in 91..95 -> { rows = 7; cols = 8; targetCount = 18 }
+            lvl in 96..100 -> { rows = 7; cols = 8; targetCount = 20 }
+            else -> {
+                rows = 8
+                cols = 8
+                targetCount = (20 + (lvl - 100) / 10).coerceAtMost(32)
+            }
+        }
+    }
 
     // Targets and clicked states
     var targetCells by remember { mutableStateOf(emptySet<Int>()) }
@@ -6518,96 +6497,27 @@ fun MemoryGameDialog(
     var isPreviewPhase by remember { mutableStateOf(true) }
     var previewTimeLeft by remember { mutableStateOf(1.2f) }
 
-    // Preview timer set to exactly 1.2 seconds for all levels
-    val maxPreviewTime = 1.2f
+    // Dynamic preview duration so higher levels with more targets get enough time
+    fun getMaxPreviewTime(): Float = (1.2f + (targetCount - 3) * 0.12f).coerceIn(1.2f, 3.5f)
 
     var isLevelCleared by remember { mutableStateOf(false) }
 
-    // Adaptive AI Game Difficulty Adjustment algorithm
-    fun adjustDifficulty(isSuccess: Boolean, currentRoundMistakes: Int) {
-        if (isSuccess) {
-            consecutiveLosses = 0
-            if (currentRoundMistakes == 0) {
-                consecutiveWins++
-                aiMessage = "🤖 AI Tuning: 🚀 शानदार प्रदर्शन! लगातार ${consecutiveWins} बार बिल्कुल सही खेला। स्तर बढ़ाया जा रहा है..."
-                // Increase targets or expand grid size!
-                if (targetCount < (rows * cols) - 4) {
-                    targetCount++
-                } else {
-                    // Upgrade grid layout gracefully: 3x3 -> 3x4 -> 4x4 -> 4x5 -> 5x5
-                    if (rows == 3 && cols == 3) {
-                        cols = 4
-                        targetCount = 4
-                    } else if (rows == 3 && cols == 4) {
-                        rows = 4
-                        targetCount = 5
-                    } else if (rows == 4 && cols == 4) {
-                        cols = 5
-                        targetCount = 6
-                    } else if (rows == 4 && cols == 5) {
-                        rows = 5
-                        cols = 5
-                        targetCount = 7
-                    } else {
-                        // Max grid size is 5x5, just increase targets up to 15
-                        if (targetCount < 15) {
-                            targetCount++
-                        }
-                    }
-                }
-            } else {
-                consecutiveWins = 0
-                aiMessage = "🤖 AI Tuning: ⚙️ गेमप्ले संतुलित है। स्तर समान रखते हुए अभ्यास जारी रखें।"
-                // Slow adjust
-                if (targetCount < (rows * cols) / 3) {
-                    targetCount++
-                }
-            }
-        } else {
-            consecutiveWins = 0
-            consecutiveLosses++
-            aiMessage = "🤖 AI Tuning: 🛡️ कठिनाई संतुलित की जा रही है... आपके लिए आसान पैटर्न बनाया जा रहा है।"
-            // Decrease difficulty to make it friendly!
-            if (targetCount > 3) {
-                targetCount--
-            } else {
-                // Shrink grid layout if targets are already at minimum
-                if (rows == 5 && cols == 5) {
-                    rows = 4
-                    cols = 5
-                    targetCount = 6
-                } else if (rows == 4 && cols == 5) {
-                    rows = 4
-                    cols = 4
-                    targetCount = 5
-                } else if (rows == 4 && cols == 4) {
-                    rows = 3
-                    cols = 4
-                    targetCount = 4
-                } else if (rows == 3 && cols == 4) {
-                    rows = 3
-                    cols = 3
-                    targetCount = 3
-                }
-            }
-        }
-        // Dynamically compute display level based on total boxes and targets
-        level = (rows * cols) + targetCount - 5
-    }
-
-    // Helper generator function to start a new level
+    // Helper generator function to start a level
     fun startNewLevel() {
+        updateGridForLevel(level)
         clickedCells.clear()
         failedCells.clear()
         isLevelCleared = false
+        isDisappearing = false
+        showGameOverPopup = false
 
-        // Generate target boxes dynamically
+        val currentTotal = rows * cols
         val targetSet = mutableSetOf<Int>()
         val numIsolated = if (targetCount > 4) (0..2).random() else (0..1).random()
         val clusterSize = (targetCount - numIsolated).coerceAtLeast(1)
 
         val cluster = mutableSetOf<Int>()
-        val firstCell = (0 until totalCells).random()
+        val firstCell = (0 until currentTotal).random()
         cluster.add(firstCell)
 
         fun getNeighbors(cell: Int): List<Int> {
@@ -6630,7 +6540,7 @@ fun MemoryGameDialog(
 
         val remainingCount = targetCount - targetSet.size
         if (remainingCount > 0) {
-            val available = (0 until totalCells).filter { it !in targetSet }
+            val available = (0 until currentTotal).filter { it !in targetSet }
             if (available.isNotEmpty()) {
                 targetSet.addAll(available.shuffled().take(remainingCount))
             }
@@ -6648,8 +6558,9 @@ fun MemoryGameDialog(
     // Half-time preview timer loop
     LaunchedEffect(key1 = level, key2 = isPreviewPhase, key3 = isGameOver) {
         if (!isGameOver && isPreviewPhase) {
-            previewTimeLeft = maxPreviewTime
-            val steps = (maxPreviewTime * 10).toInt()
+            val duration = getMaxPreviewTime()
+            previewTimeLeft = duration
+            val steps = (duration * 10).toInt()
             for (i in steps downTo 1) {
                 delay(100L)
                 previewTimeLeft = i / 10.0f
@@ -6658,32 +6569,40 @@ fun MemoryGameDialog(
         }
     }
 
-    // Save history on Game Over
+    // Save history on Game Over with 0.5s popup delay
     LaunchedEffect(key1 = isGameOver) {
-        if (isGameOver && !hasSavedHistory) {
-            hasSavedHistory = true
-            val (stars, titleTag) = calculateGameRating(score)
-            val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
-            val record = GameHistoryRecord(
-                gameName = "Memory Grid Matrix (मेमोरी)",
-                score = level,
-                stars = stars,
-                titleTag = "Level $level Reached",
-                accuracyText = "Score: $score",
-                highestStreak = level,
-                timestamp = "Today, $nowFormatted"
-            )
-            onGameFinished(record)
+        if (isGameOver) {
+            delay(500L) // 0.5s delay before showing popup so red box & OUT! text display first
+            showGameOverPopup = true
+            if (!hasSavedHistory) {
+                hasSavedHistory = true
+                val (stars, titleTag) = calculateGameRating(score)
+                val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
+                val record = GameHistoryRecord(
+                    gameName = "Memory Grid Matrix (मेमोरी)",
+                    score = level,
+                    stars = stars,
+                    titleTag = "Level $level Reached",
+                    accuracyText = "Score: $score",
+                    highestStreak = level,
+                    timestamp = "Today, $nowFormatted"
+                )
+                onGameFinished(record)
+            }
+        } else {
+            showGameOverPopup = false
         }
     }
 
-    // Clear level transition
+    // Clear level transition (0.5s disappear animation before starting next level)
     LaunchedEffect(key1 = isLevelCleared) {
         if (isLevelCleared) {
-            delay(1000L)
-            score += level * 100
-            adjustDifficulty(isSuccess = true, currentRoundMistakes = failedCells.size)
+            isDisappearing = true
+            delay(500L) // 0.5s disappear animation
+            score += 25 // 25 XP per level
+            level++
             startNewLevel()
+            isDisappearing = false
         }
     }
 
@@ -6700,269 +6619,170 @@ fun MemoryGameDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color(0xFF121212))
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(24.dp)
         ) {
-            if (isGameOver) {
-                // Game Over Screen - Sleek and modern full screen presentation
-                Column(
+            // Main Game Board View
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // 1. Sleek Top Bar HUD
+                Row(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("🧠", fontSize = 64.sp)
-                    Spacer(modifier = Modifier.height(16.dp))
+                    IconButton(
+                        onClick = { showExitConfirmationDialog = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E1E1E))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Exit",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    // Memory Grid Purple Badge
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(NeonPurpleBright.copy(alpha = 0.15f))
+                            .border(1.dp, NeonPurpleBright.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(NeonPurpleBright)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "🧩 MEMORY GRID",
+                                color = NeonPurpleBright,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                        }
+                    }
+
+                    // Lives Counter
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        repeat(maxMistakes) { index ->
+                            val isLost = index < mistakes
+                            Text(
+                                text = if (isLost) "💀" else "❤️",
+                                fontSize = 16.sp,
+                                modifier = Modifier.padding(horizontal = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                // 2. HUD Info Panel
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("LEVEL", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("$level", color = NeonGold, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("XP", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("$score", color = Color(0xFF8CE2F3), fontSize = 24.sp, fontWeight = FontWeight.Black)
+                        }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("GRID", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("${rows}x${cols}", color = NeonPurpleBright, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // In-Place Level / SUCCESSFUL! / OUT! Display (Zero layout shift)
+                    val headerText = when {
+                        isLevelCleared -> "SUCCESSFUL!"
+                        isGameOver -> "OUT!"
+                        else -> "$level"
+                    }
+                    val headerColor = when {
+                        isLevelCleared -> NeonGreen
+                        isGameOver -> Color(0xFFFF1744)
+                        isPreviewPhase -> NeonGold
+                        else -> Color(0xFF8CE2F3)
+                    }
+
                     Text(
-                        text = "खेल समाप्त!",
-                        color = Color(0xFFFF1744),
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        text = "MEMORY GAME OVER",
-                        color = TextSecondary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
+                        text = headerText,
+                        color = headerColor,
+                        fontSize = if (headerText.length > 3) 22.sp else 28.sp,
+                        fontWeight = FontWeight.Black,
                         letterSpacing = 1.5.sp
                     )
 
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    // Minimal Score Card
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color(0xFF1E1E1E))
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("अंतिम स्तर (Final Level):", color = TextSecondary, fontSize = 14.sp)
-                            Text("Level $level", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("कुल अंक (Total Score):", color = TextSecondary, fontSize = 14.sp)
-                            Text("$score PTS", color = Color(0xFF8CE2F3), fontSize = 16.sp, fontWeight = FontWeight.Black)
-                        }
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("ग्रिड का आकार (Grid Size):", color = TextSecondary, fontSize = 14.sp)
-                            Text("${rows}x${cols}", color = NeonPurpleBright, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(40.dp))
-
-                    // Play Again Button (Neon aesthetic)
+                    // Countdown Progress line for preview
+                    Spacer(modifier = Modifier.height(8.dp))
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(54.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    listOf(Color(0xFF00E5FF), Color(0xFF00B0FF))
-                                )
+                            .fillMaxWidth(0.5f)
+                            .height(4.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF2C2C2C))
+                    ) {
+                        if (isPreviewPhase) {
+                            LinearProgressIndicator(
+                                progress = { previewTimeLeft / getMaxPreviewTime() },
+                                modifier = Modifier.fillMaxSize(),
+                                color = Color(0xFF8CE2F3),
+                                trackColor = Color.Transparent
                             )
-                            .clickable {
-                                rows = 3
-                                cols = 3
-                                targetCount = 3
-                                level = 1
-                                score = 0
-                                mistakes = 0
-                                consecutiveWins = 0
-                                consecutiveLosses = 0
-                                isGameOver = false
-                                hasSavedHistory = false
-                                aiMessage = "🤖 AI Adaptive: रीसेट किया गया! नई कठिनाई से शुरुआत..."
-                                startNewLevel()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "फिर से खेलें (PLAY AGAIN)",
-                            color = Color.Black,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Quit Button
-                    Box(
-                        modifier = Modifier
-                            .clickable { onDismiss() }
-                            .padding(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = "बाहर निकलें (EXIT)",
-                            color = TextMuted,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                        }
                     }
                 }
-            } else {
-                // Game Play Full Screen View
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.SpaceBetween
+
+                // 3. Grid strictly aligned TopCenter directly below level mark line
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .padding(top = 12.dp, bottom = 16.dp),
+                    contentAlignment = Alignment.TopCenter
                 ) {
-                    // 1. Sleek Top Bar HUD
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1E1E1E))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Exit",
-                                tint = TextPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        // Adaptive AI Active Badge
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFF00E5FF).copy(alpha = 0.1f))
-                                .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(6.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFF00E5FF))
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "🤖 AI ADAPTIVE",
-                                    color = Color(0xFF00E5FF),
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Black,
-                                    letterSpacing = 1.sp
-                                )
-                            }
-                        }
-
-                        // Lives Counter
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            repeat(maxMistakes) { index ->
-                                val isLost = index < mistakes
-                                Text(
-                                    text = if (isLost) "💀" else "❤️",
-                                    fontSize = 16.sp,
-                                    modifier = Modifier.padding(horizontal = 2.dp)
-                                )
-                            }
-                        }
+                    val maxDim = maxOf(rows, cols)
+                    val (cellSize, gridSpacing, cornerRadius) = when {
+                        maxDim <= 3 -> Triple(72.dp, 12.dp, 14.dp)
+                        maxDim == 4 -> Triple(64.dp, 10.dp, 12.dp)
+                        maxDim == 5 -> Triple(54.dp, 8.dp, 10.dp)
+                        maxDim == 6 -> Triple(46.dp, 6.dp, 8.dp)
+                        maxDim == 7 -> Triple(40.dp, 5.dp, 7.dp)
+                        else -> Triple(36.dp, 4.dp, 6.dp)
                     }
 
-                    // 2. HUD Info Panel
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("LEVEL", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                Text("$level", color = NeonGold, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("SCORE", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                Text("$score", color = Color(0xFF8CE2F3), fontSize = 24.sp, fontWeight = FontWeight.Black)
-                            }
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text("GRID", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                Text("${rows}x${cols}", color = NeonPurpleBright, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-
-                        // Game Stage Title
-                        Text(
-                            text = if (isPreviewPhase) "याद रखें! (MEMORIZE!)" else if (isLevelCleared) "अद्भुत! (SUCCESS!)" else "बॉक्स पहचानें! (TAP!)",
-                            color = if (isPreviewPhase) NeonGold else if (isLevelCleared) NeonGreen else Color(0xFF8CE2F3),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 1.2.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(4.dp))
-
-                        Text(
-                            text = if (isPreviewPhase) "समान पैटर्न याद करें" else "नीले रंग वाले बॉक्स को चुनिए",
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        // Countdown Progress line for preview
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.5f)
-                                .height(4.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF2C2C2C))
-                        ) {
-                            if (isPreviewPhase) {
-                                LinearProgressIndicator(
-                                    progress = { previewTimeLeft / maxPreviewTime },
-                                    modifier = Modifier.fillMaxSize(),
-                                    color = Color(0xFF8CE2F3),
-                                    trackColor = Color.Transparent
-                                )
-                            }
-                        }
-                    }
-
-                    // 3. Minimalist centered Grid matching the user's uploaded images perfectly
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
+                    key(level) {
                         Column(
-                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalArrangement = Arrangement.spacedBy(gridSpacing),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             repeat(rows) { rowIndex ->
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(gridSpacing)
                                 ) {
                                     repeat(cols) { colIndex ->
                                         val cellIndex = rowIndex * cols + colIndex
@@ -6970,38 +6790,42 @@ fun MemoryGameDialog(
                                         val isClicked = clickedCells.contains(cellIndex)
                                         val isFailed = failedCells.contains(cellIndex)
 
-                                        // Image styling:
-                                        // Target color during preview = Beautiful Light Blue (#8CE2F3)
-                                        // Inactive color = Charcoal Dark Grey (#2C2C2C)
-                                        // Wrong color = Crimson Red (#FF1744)
-                                        // Correct clicked color = Beautiful Light Blue (#8CE2F3)
+                                        // 0.5s Horizontal Flip Animation Spec
+                                        val targetFlip = if ((isPreviewPhase && isTarget) || isClicked) 180f else 0f
+                                        val flipRotation by animateFloatAsState(
+                                            targetValue = targetFlip,
+                                            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                                            label = "cardFlip"
+                                        )
+
+                                        // Disappear animation before next level
+                                        val gridAlpha by animateFloatAsState(
+                                            targetValue = if (isDisappearing) 0f else 1f,
+                                            animationSpec = tween(durationMillis = 400, easing = LinearEasing),
+                                            label = "gridDisappear"
+                                        )
+
                                         val targetColor = Color(0xFF8CE2F3)
                                         val inactiveColor = Color(0xFF2C2C2C)
                                         val wrongColor = Color(0xFFFF1744)
 
                                         val cellColor = when {
-                                            isPreviewPhase -> {
-                                                if (isTarget) targetColor
-                                                else inactiveColor
-                                            }
                                             isFailed -> wrongColor
-                                            isClicked -> targetColor
+                                            flipRotation > 90f -> targetColor
                                             else -> inactiveColor
-                                        }
-
-                                        // Size adapts beautifully to dynamic grid densities
-                                        val cellSize = when {
-                                            rows >= 5 || cols >= 5 -> 54.dp
-                                            rows >= 4 || cols >= 4 -> 62.dp
-                                            else -> 72.dp
                                         }
 
                                         Box(
                                             modifier = Modifier
                                                 .size(cellSize)
-                                                .clip(RoundedCornerShape(12.dp))
+                                                .graphicsLayer {
+                                                    alpha = gridAlpha
+                                                    rotationY = flipRotation
+                                                    cameraDistance = 12f * density
+                                                }
+                                                .clip(RoundedCornerShape(cornerRadius))
                                                 .background(cellColor)
-                                                .clickable(enabled = !isPreviewPhase && !isLevelCleared && !isClicked && !isFailed) {
+                                                .clickable(enabled = !isPreviewPhase && !isLevelCleared && !isClicked && !isFailed && !isGameOver && !isDisappearing) {
                                                     if (isTarget) {
                                                         clickedCells.add(cellIndex)
                                                         if (clickedCells.size == targetCells.size) {
@@ -7012,7 +6836,6 @@ fun MemoryGameDialog(
                                                         mistakes++
                                                         if (mistakes >= maxMistakes) {
                                                             isGameOver = true
-                                                            adjustDifficulty(isSuccess = false, currentRoundMistakes = failedCells.size)
                                                         }
                                                     }
                                                 }
@@ -7022,28 +6845,207 @@ fun MemoryGameDialog(
                             }
                         }
                     }
+                }
+            }
 
-                    // 4. Dynamic AI Feedback Bar at the bottom
+            // Confirm Exit Popup Dialog
+            if (showExitConfirmationDialog) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.85f)),
+                    contentAlignment = Alignment.Center
+                ) {
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1E1E1E)),
-                        shape = RoundedCornerShape(16.dp)
+                            .fillMaxWidth(0.85f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .border(1.dp, NeonPurpleBright.copy(alpha = 0.5f), RoundedCornerShape(20.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF181824))
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                        Column(
+                            modifier = Modifier.padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            Text("⚠️", fontSize = 36.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = aiMessage,
-                                color = Color(0xFF8CE2F3),
-                                fontSize = 11.5.sp,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.weight(1f)
+                                text = "QUIT GAME?",
+                                color = TextPrimary,
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black
                             )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "Are you sure you want to exit? Your game progress will be saved.",
+                                color = TextSecondary,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFF2B2B3D))
+                                        .clickable { showExitConfirmationDialog = false },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("CANCEL", color = TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(44.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color(0xFFFF1744))
+                                        .clickable {
+                                            showExitConfirmationDialog = false
+                                            onDismiss()
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("EXIT", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Redesigned "OUT!" Popup Dialog (0.5s delayed trigger)
+            if (isGameOver && showGameOverPopup) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.85f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(0.88f)
+                            .clip(RoundedCornerShape(24.dp))
+                            .border(1.5.dp, Color(0xFFFF1744).copy(alpha = 0.6f), RoundedCornerShape(24.dp)),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF181824))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("❌", fontSize = 42.sp)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "OUT!",
+                                color = Color(0xFFFF1744),
+                                fontSize = 32.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            // Score & Level Summary Box
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFF0F0F1A))
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column {
+                                    Text("LEVEL REACHED", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("Level $level", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("TOTAL XP", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    Text("$score XP", color = Color(0xFF8CE2F3), fontSize = 16.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            // TRY AGAIN BUTTON
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            listOf(Color(0xFF00E5FF), Color(0xFF00B0FF))
+                                        )
+                                    )
+                                    .clickable {
+                                        rows = 3
+                                        cols = 3
+                                        targetCount = 3
+                                        level = 1
+                                        score = 0
+                                        mistakes = 0
+                                        isGameOver = false
+                                        hasSavedHistory = false
+                                        startNewLevel()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "TRY AGAIN",
+                                    color = Color.Black,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            // SKIP LEVEL BUTTON (With AD badge)
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp)
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(Color(0xFF242436))
+                                    .border(1.dp, Color(0xFF8CE2F3).copy(alpha = 0.3f), RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        level++
+                                        mistakes = 0
+                                        isGameOver = false
+                                        hasSavedHistory = false
+                                        startNewLevel()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(NeonGold)
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text("AD", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "SKIP LEVEL",
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -7161,6 +7163,7 @@ fun ReactionGameDialog(
             modifier = Modifier
                 .fillMaxSize()
                 .background(if (gameState == "ARROW_CLICK_PLAY") Color.White else Color(0xFF121212))
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY") 0.dp else 24.dp)
         ) {
             // Header for info / exit (unless we are in TAP or READY mode which might occupy the full screen to prevent accidental clicks)
@@ -7217,7 +7220,7 @@ fun ReactionGameDialog(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY") 0.dp else 70.dp),
+                    .padding(vertical = if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY") 0.dp else 60.dp),
                 contentAlignment = Alignment.Center
             ) {
                 when (gameState) {
@@ -7225,7 +7228,9 @@ fun ReactionGameDialog(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
                         ) {
                             // Sliding custom tab switcher at the top
                             Row(
@@ -7682,7 +7687,9 @@ fun ReactionGameDialog(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
                         ) {
                             if (lastReactionTime == -1L) {
                                 // Foul Result View
@@ -7899,7 +7906,9 @@ fun ReactionGameDialog(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .verticalScroll(rememberScrollState())
                         ) {
                             Text("⚡", fontSize = 64.sp)
                             Spacer(modifier = Modifier.height(16.dp))
@@ -8088,6 +8097,13 @@ fun ReactionGameDialog(
                                         fontSize = 13.sp,
                                         fontWeight = FontWeight.Bold
                                     )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "TAP THE ARROW TIP!",
+                                        color = Color.Black,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                 }
 
                                 // Just a spacer placeholder to align correctly
@@ -8223,21 +8239,6 @@ fun ReactionGameDialog(
                                     )
                                 }
                             }
-
-                            // Bottom visual instructions (Overlaid)
-                            Column(
-                                modifier = Modifier
-                                    .align(Alignment.BottomCenter)
-                                    .padding(horizontal = 24.dp, vertical = 28.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text(
-                                    text = "TAP THE ARROW TIP!",
-                                    color = Color.Black,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
                         }
                     }
                 }
@@ -8248,16 +8249,15 @@ fun ReactionGameDialog(
 
 @Composable
 fun ProfileTabScreen(
+    userName: String,
+    userBio: String,
+    userEmoji: String,
+    onSaveProfile: (String, String, String) -> Unit,
     onPlayMathGame: () -> Unit,
     onOpenSettings: () -> Unit,
     gameHistory: List<GameHistoryRecord>
 ) {
     val context = LocalContext.current
-
-    // Profile States
-    var userName by remember { mutableStateOf("Sameer Choudhary") }
-    var userBio by remember { mutableStateOf("🧠 Cyber Mind Gamer • Grandmaster Rank") }
-    var userEmoji by remember { mutableStateOf("👑") }
     var showEditDialog by remember { mutableStateOf(false) }
 
     if (showEditDialog) {
@@ -8267,20 +8267,42 @@ fun ProfileTabScreen(
             currentEmoji = userEmoji,
             onDismiss = { showEditDialog = false },
             onSave = { newName, newBio, newEmoji ->
-                userName = newName
-                userBio = newBio
-                userEmoji = newEmoji
+                onSaveProfile(newName, newBio, newEmoji)
                 showEditDialog = false
-                Toast.makeText(context, "Profile updated successfully!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Profile updated and saved permanently! 🚀", Toast.LENGTH_SHORT).show()
             }
         )
     }
+
+    // Real Career Stats Calculations from actual Game History
+    val totalMatches = gameHistory.size
+    val totalBrainXp = gameHistory.sumOf { it.score }
+    val avgAccuracy = if (gameHistory.isNotEmpty()) {
+        val accList = gameHistory.mapNotNull { it.accuracyText.replace("%", "").trim().toIntOrNull() }
+        if (accList.isNotEmpty()) "${accList.average().toInt()}%" else "100%"
+    } else "0%"
+    val maxStreak = gameHistory.maxOfOrNull { it.highestStreak }?.let { "$it Days" } ?: "0 Days"
+
+    // 5,000 XP per level design, max 100 levels (500,000 XP total)
+    val xpPerLevel = 5000
+    val currentMindLevel = (1 + (totalBrainXp / xpPerLevel)).coerceAtMost(100)
+    val currentLevelXpProgress = if (currentMindLevel >= 100) xpPerLevel else (totalBrainXp % xpPerLevel)
+    val levelProgressFraction = (currentLevelXpProgress.toFloat() / xpPerLevel.toFloat()).coerceIn(0.02f, 1f)
+    val xpNeededForNextLevel = if (currentMindLevel >= 100) 0 else (xpPerLevel - currentLevelXpProgress)
+
+    val battleRecords = gameHistory.filter {
+        it.gameName.contains("Battle", ignoreCase = true) || it.gameName.contains("2-Player", ignoreCase = true)
+    }
+    val battleMatches = battleRecords.size
+    val battleWins = battleRecords.count { it.score > 0 || it.titleTag.contains("WIN", ignoreCase = true) }
+    val winRateStr = if (battleMatches > 0) "${(battleWins * 100 / battleMatches)}% WIN RATE" else "0% WIN RATE"
+    val bestScoreStr = gameHistory.maxOfOrNull { it.score }?.let { "$it Pts" } ?: "0 Pts"
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // 1. Profile Header Card
+        // 1. Profile Header Card (Grandmaster badge removed)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -8329,33 +8351,16 @@ fun ProfileTabScreen(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    // Name, Rank & Bio
+                    // Name & Bio (No Grandmaster badge)
                     Column(modifier = Modifier.weight(1f)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = userName,
-                                color = TextPrimary,
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Black,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(NeonGold.copy(alpha = 0.2f))
-                                    .border(1.dp, NeonGold, RoundedCornerShape(6.dp))
-                                    .padding(horizontal = 5.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = "👑 GRANDMASTER",
-                                    color = NeonGold,
-                                    fontSize = 8.5.sp,
-                                    fontWeight = FontWeight.Black
-                                )
-                            }
-                        }
+                        Text(
+                            text = userName,
+                            color = TextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
 
                         Spacer(modifier = Modifier.height(2.dp))
 
@@ -8455,14 +8460,14 @@ fun ProfileTabScreen(
                         Text("🚀", fontSize = 14.sp)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "MIND LEVEL 12",
+                            text = "MIND LEVEL $currentMindLevel",
                             color = NeonGreen,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black
                         )
                     }
                     Text(
-                        text = "1,420 / 1,500 XP",
+                        text = "$currentLevelXpProgress / 5,000 XP (Total $totalBrainXp XP)",
                         color = TextMuted,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -8472,7 +8477,7 @@ fun ProfileTabScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 LinearProgressIndicator(
-                    progress = { 1420f / 1500f },
+                    progress = { levelProgressFraction },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(8.dp)
@@ -8484,14 +8489,14 @@ fun ProfileTabScreen(
                 Spacer(modifier = Modifier.height(6.dp))
 
                 Text(
-                    text = "🏆 Next Rank: Level 13 (Unlocks Cyber Master Badge)",
+                    text = if (currentMindLevel >= 100) "🏆 Max Rank Reached (Level 100 • 500,000 XP)" else "🏆 Level $currentMindLevel / 100 • $xpNeededForNextLevel XP needed for Level ${currentMindLevel + 1} (5k XP / Lvl)",
                     color = TextSecondary,
                     fontSize = 10.sp
                 )
             }
         }
 
-        // 3. Career Stats Grid (4 Cards - Home/Battle Size & Layout)
+        // 3. Career Stats Grid (100% Real Data from gameHistory)
         Text(
             text = "PLAYER CAREER STATS",
             color = TextPrimary,
@@ -8516,7 +8521,7 @@ fun ProfileTabScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("🎮 MATCHES", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text("48", color = NeonCyan, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                    Text("$totalMatches", color = NeonCyan, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 }
             }
 
@@ -8532,7 +8537,7 @@ fun ProfileTabScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("🏆 BRAIN XP", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text("1,420", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                    Text("$totalBrainXp", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 }
             }
 
@@ -8548,7 +8553,7 @@ fun ProfileTabScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("🎯 ACCURACY", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text("94%", color = NeonPurpleBright, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                    Text(avgAccuracy, color = NeonPurpleBright, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 }
             }
 
@@ -8564,12 +8569,12 @@ fun ProfileTabScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("🔥 STREAK", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     Spacer(modifier = Modifier.height(2.dp))
-                    Text("14 Days", color = Color(0xFFFF7A00), fontSize = 15.sp, fontWeight = FontWeight.Black)
+                    Text(maxStreak, color = Color(0xFFFF7A00), fontSize = 15.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
 
-        // 5. Battle Arena Summary Card
+        // 4. Battle Arena Summary Card (Real Data)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -8598,7 +8603,7 @@ fun ProfileTabScreen(
                             letterSpacing = 0.5.sp
                         )
                     }
-                    Text("75% WIN RATE", color = NeonYellow, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    Text(winRateStr, color = NeonYellow, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -8616,7 +8621,7 @@ fun ProfileTabScreen(
                     ) {
                         Column {
                             Text("Battles Played", color = TextMuted, fontSize = 9.sp)
-                            Text("12 Matches", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("$battleMatches Matches", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -8629,7 +8634,7 @@ fun ProfileTabScreen(
                     ) {
                         Column {
                             Text("Victories", color = TextMuted, fontSize = 9.sp)
-                            Text("9 Wins 🥇", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("$battleWins Wins 🥇", color = NeonGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
@@ -8642,14 +8647,17 @@ fun ProfileTabScreen(
                     ) {
                         Column {
                             Text("Best Highscore", color = TextMuted, fontSize = 9.sp)
-                            Text("180 Pts", color = NeonGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(bestScoreStr, color = NeonGold, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
         }
 
-        // 6. Share & Challenge Card
+        // 5. Global XP Leaderboard Section
+        XpLeaderboardCard(currentUserName = userName, currentUserEmoji = userEmoji)
+
+        // 6. Share & Challenge Card (Placed BELOW Leaderboard Card at the VERY BOTTOM)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -8672,7 +8680,7 @@ fun ProfileTabScreen(
                         fontWeight = FontWeight.Black
                     )
                     Text(
-                        text = "Share your Grandmaster Rank & 1,420 XP score!",
+                        text = "Share your profile stats ($totalBrainXp XP) with friends!",
                         color = TextSecondary,
                         fontSize = 10.sp
                     )
@@ -8698,9 +8706,6 @@ fun ProfileTabScreen(
                 }
             }
         }
-
-        // 7. Global XP Leaderboard Section
-        XpLeaderboardCard()
     }
 }
 
@@ -8726,7 +8731,7 @@ fun EditProfileModalDialog(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
                 .clip(RoundedCornerShape(20.dp))
-                .border(1.5.dp, NeonCyan, RoundedCornerShape(20.dp)),
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp)),
             colors = CardDefaults.cardColors(containerColor = CyberSurface)
         ) {
             Column(
@@ -9183,7 +9188,9 @@ fun DotConnectGameDialog(
             color = Color(0xFF0F172A) // Sleek Dark Slate Canvas
         ) {
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
             ) {
                 // Top Main Bar (Dark Header with Title & Close)
                 Box(
@@ -9915,7 +9922,11 @@ fun TicTacToeGameDialog(
                 .background(CyberBackground),
             color = CyberBackground
         ) {
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(WindowInsets.safeDrawing)
+            ) {
                 // Multiplayer "This feature will work soon" Popup Dialog
                 if (showMultiplayerPopup) {
                     Dialog(onDismissRequest = { showMultiplayerPopup = false }) {
