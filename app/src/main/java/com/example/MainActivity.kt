@@ -305,8 +305,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            val currentDensity = androidx.compose.ui.platform.LocalDensity.current
+            val cappedDensity = androidx.compose.ui.unit.Density(
+                density = currentDensity.density,
+                fontScale = currentDensity.fontScale.coerceAtMost(1.08f)
+            )
             androidx.compose.runtime.CompositionLocalProvider(
-                androidx.compose.foundation.LocalOverscrollConfiguration provides null
+                androidx.compose.foundation.LocalOverscrollConfiguration provides null,
+                androidx.compose.ui.platform.LocalDensity provides cappedDensity
             ) {
                 MyApplicationTheme {
                     HomeScreen()
@@ -8656,6 +8662,7 @@ fun ProfileTabScreen(
                     Box(
                         modifier = Modifier
                             .weight(1f)
+                            .fillMaxHeight()
                             .clip(RoundedCornerShape(8.dp))
                             .background(CyberSurfaceVariant)
                             .padding(8.dp)
