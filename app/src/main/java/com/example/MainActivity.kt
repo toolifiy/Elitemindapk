@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -472,162 +473,176 @@ fun HomeScreen() {
             )
         }
     ) { innerPadding ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Top Bar
-            TopBarSection(
-                onClick = { selectedTab = "PROFILE" },
-                onSettingsClick = { showSettingsDialog = true },
-                tokens = userTokens,
-                onTokensClick = {
-                    Toast.makeText(context, "⚡ Tokens: $userTokens/20 available (1 Token per game)", Toast.LENGTH_SHORT).show()
-                },
-                userName = userName,
-                userEmoji = userEmoji
-            )
+            val screenWidth = maxWidth
+            val screenHeight = maxHeight
+            val isCompactWidth = screenWidth < 360.dp
+            val isCompactHeight = screenHeight < 640.dp
 
-            if (selectedCategoryView != null) {
-                // Category-Specific Games Interface View with Swipeable Games Carousel
-                CategoryGamesInterface(
-                    categoryKey = selectedCategoryView!!,
-                    onBackClick = { selectedCategoryView = null },
-                    onPlayReactionSpeed = {
-                        tryStartGame {
-                            reactionInitialGame = "SPEED_REFLEX"
-                            showReactionGameDialog = true
-                        }
+            val adaptiveHorizontalPadding = if (isCompactWidth) 10.dp else 16.dp
+            val adaptiveVerticalPadding = if (isCompactHeight) 4.dp else 6.dp
+            val adaptiveItemSpacing = if (isCompactHeight) 8.dp else 10.dp
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = adaptiveHorizontalPadding, vertical = adaptiveVerticalPadding),
+                verticalArrangement = Arrangement.spacedBy(adaptiveItemSpacing)
+            ) {
+                // Top Bar
+                TopBarSection(
+                    onClick = { selectedTab = "PROFILE" },
+                    onSettingsClick = { showSettingsDialog = true },
+                    tokens = userTokens,
+                    onTokensClick = {
+                        Toast.makeText(context, "⚡ Tokens: $userTokens/20 available (1 Token per game)", Toast.LENGTH_SHORT).show()
                     },
-                    onPlayArrowClick = {
-                        tryStartGame {
-                            reactionInitialGame = "ARROW_CLICK"
-                            showReactionGameDialog = true
-                        }
-                    },
-                    onPlayMemoryGame = {
-                        tryStartGame { showMemoryGameDialog = true }
-                    },
-                    onPlayMathGame = {
-                        tryStartGame { showMathGameDialog = true }
-                    },
-                    onPlayDotConnect = {
-                        tryStartGame { showDotConnectGameDialog = true }
-                    },
-                    onPlayTicTacToe = {
-                        tryStartGame { showTicTacToeGameDialog = true }
-                    }
+                    userName = userName,
+                    userEmoji = userEmoji
                 )
-            } else {
-                when (selectedTab) {
-                    "PROFILE" -> {
-                        // Dedicated Profile Screen View
-                        ProfileTabScreen(
-                            userName = userName,
-                            userBio = userBio,
-                            userEmoji = userEmoji,
-                            onSaveProfile = { newName, newBio, newEmoji ->
-                                updateProfile(newName, newBio, newEmoji)
-                            },
-                            onPlayMathGame = { tryStartGame { showMathGameDialog = true } },
-                            onOpenSettings = { showSettingsDialog = true },
-                            gameHistory = gameHistory
-                        )
-                    }
-                    "BATTLE" -> {
-                        // Dedicated 2-Player Battle Arena View
-                        BattleTabScreen(
-                            onSaveBattleHistory = { record ->
-                                gameHistory.add(0, record)
-                            },
-                            onTryStartGame = tryStartGame
-                        )
-                    }
-                    "PROGRESS" -> {
-                        // Dedicated Progress & Saved History View
-                        ProgressTabScreen(
-                            gameHistory = gameHistory,
-                            onPlayMathGame = { tryStartGame { showMathGameDialog = true } }
-                        )
-                    }
-                    "GAMES" -> {
-                        // Dedicated Games View when GAMES tab is selected
-                        Text(
-                            text = "GAME CATEGORIES",
-                            color = TextPrimary,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp,
-                            modifier = Modifier.padding(top = 4.dp)
-                        )
 
-                        GamesInterfaceSection(
-                            onClick = showSoonToast,
-                            onMathClick = { tryStartGame { showMathGameDialog = true } },
-                            onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
-                            onReactionClick = {
-                                tryStartGame {
-                                    reactionInitialGame = "SPEED_REFLEX"
-                                    showReactionGameDialog = true
-                                }
-                            },
-                            onArrowClick = {
-                                tryStartGame {
-                                    reactionInitialGame = "ARROW_CLICK"
-                                    showReactionGameDialog = true
-                                }
-                            },
-                            onDotConnectClick = {
-                                tryStartGame { showDotConnectGameDialog = true }
-                            },
-                            onTicTacToeClick = {
-                                tryStartGame { showTicTacToeGameDialog = true }
-                            },
-                            onCategoryClick = { categoryKey ->
-                                selectedCategoryView = categoryKey
+                if (selectedCategoryView != null) {
+                    // Category-Specific Games Interface View with Swipeable Games Carousel
+                    CategoryGamesInterface(
+                        categoryKey = selectedCategoryView!!,
+                        onBackClick = { selectedCategoryView = null },
+                        onPlayReactionSpeed = {
+                            tryStartGame {
+                                reactionInitialGame = "SPEED_REFLEX"
+                                showReactionGameDialog = true
                             }
-                        )
-                    }
-                    else -> {
-                        // 1. Level Progress Fillbar Card
-                        LevelProgressCard(onClick = { selectedTab = "PROGRESS" })
-
-                        // 2. Swipeable Offer Banners Carousel
-                        OfferBannersCarousel(onClick = { tryStartGame { showMathGameDialog = true } })
-
-                        // Brain Games Section Grid
-                        TrainYourBrainSection(
-                            onClick = showSoonToast,
-                            onMathClick = { tryStartGame { showMathGameDialog = true } },
-                            onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
-                            onReactionClick = {
-                                tryStartGame {
-                                    reactionInitialGame = "SPEED_REFLEX"
-                                    showReactionGameDialog = true
-                                }
-                            },
-                            onDotConnectClick = {
-                                tryStartGame { showDotConnectGameDialog = true }
-                            },
-                            onTicTacToeClick = {
-                                tryStartGame { showTicTacToeGameDialog = true }
-                            },
-                            onCategoryClick = { categoryKey ->
-                                selectedCategoryView = categoryKey
+                        },
+                        onPlayArrowClick = {
+                            tryStartGame {
+                                reactionInitialGame = "ARROW_CLICK"
+                                showReactionGameDialog = true
                             }
-                        )
+                        },
+                        onPlayMemoryGame = {
+                            tryStartGame { showMemoryGameDialog = true }
+                        },
+                        onPlayMathGame = {
+                            tryStartGame { showMathGameDialog = true }
+                        },
+                        onPlayDotConnect = {
+                            tryStartGame { showDotConnectGameDialog = true }
+                        },
+                        onPlayTicTacToe = {
+                            tryStartGame { showTicTacToeGameDialog = true }
+                        }
+                    )
+                } else {
+                    when (selectedTab) {
+                        "PROFILE" -> {
+                            // Dedicated Profile Screen View
+                            ProfileTabScreen(
+                                userName = userName,
+                                userBio = userBio,
+                                userEmoji = userEmoji,
+                                onSaveProfile = { newName, newBio, newEmoji ->
+                                    updateProfile(newName, newBio, newEmoji)
+                                },
+                                onPlayMathGame = { tryStartGame { showMathGameDialog = true } },
+                                onOpenSettings = { showSettingsDialog = true },
+                                gameHistory = gameHistory
+                            )
+                        }
+                        "BATTLE" -> {
+                            // Dedicated 2-Player Battle Arena View
+                            BattleTabScreen(
+                                onSaveBattleHistory = { record ->
+                                    gameHistory.add(0, record)
+                                },
+                                onTryStartGame = tryStartGame
+                            )
+                        }
+                        "PROGRESS" -> {
+                            // Dedicated Progress & Saved History View
+                            ProgressTabScreen(
+                                gameHistory = gameHistory,
+                                onPlayMathGame = { tryStartGame { showMathGameDialog = true } }
+                            )
+                        }
+                        "GAMES" -> {
+                            // Dedicated Games View when GAMES tab is selected
+                            Text(
+                                text = "GAME CATEGORIES",
+                                color = TextPrimary,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
 
-                        // Daily Challenge Section
-                        DailyChallengeCard(onClick = { tryStartGame { showMathGameDialog = true } })
+                            GamesInterfaceSection(
+                                onClick = showSoonToast,
+                                onMathClick = { tryStartGame { showMathGameDialog = true } },
+                                onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
+                                onReactionClick = {
+                                    tryStartGame {
+                                        reactionInitialGame = "SPEED_REFLEX"
+                                        showReactionGameDialog = true
+                                    }
+                                },
+                                onArrowClick = {
+                                    tryStartGame {
+                                        reactionInitialGame = "ARROW_CLICK"
+                                        showReactionGameDialog = true
+                                    }
+                                },
+                                onDotConnectClick = {
+                                    tryStartGame { showDotConnectGameDialog = true }
+                                },
+                                onTicTacToeClick = {
+                                    tryStartGame { showTicTacToeGameDialog = true }
+                                },
+                                onCategoryClick = { categoryKey ->
+                                    selectedCategoryView = categoryKey
+                                }
+                            )
+                        }
+                        else -> {
+                            // 1. Level Progress Fillbar Card
+                            LevelProgressCard(onClick = { selectedTab = "PROGRESS" })
+
+                            // 2. Swipeable Offer Banners Carousel
+                            OfferBannersCarousel(onClick = { tryStartGame { showMathGameDialog = true } })
+
+                            // Brain Games Section Grid
+                            TrainYourBrainSection(
+                                onClick = showSoonToast,
+                                onMathClick = { tryStartGame { showMathGameDialog = true } },
+                                onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
+                                onReactionClick = {
+                                    tryStartGame {
+                                        reactionInitialGame = "SPEED_REFLEX"
+                                        showReactionGameDialog = true
+                                    }
+                                },
+                                onDotConnectClick = {
+                                    tryStartGame { showDotConnectGameDialog = true }
+                                },
+                                onTicTacToeClick = {
+                                    tryStartGame { showTicTacToeGameDialog = true }
+                                },
+                                onCategoryClick = { categoryKey ->
+                                    selectedCategoryView = categoryKey
+                                }
+                            )
+
+                            // Daily Challenge Section
+                            DailyChallengeCard(onClick = { tryStartGame { showMathGameDialog = true } })
+                        }
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 }
