@@ -47,6 +47,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -60,6 +61,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.runtime.mutableIntStateOf
@@ -68,6 +77,7 @@ import androidx.compose.runtime.key
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
@@ -120,9 +130,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.material.icons.filled.RemoveRedEye
+import androidx.compose.material.icons.filled.Widgets
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.material.icons.filled.Grain
@@ -339,13 +357,17 @@ fun HomeScreen() {
     var showReactionGameDialog by remember { mutableStateOf(false) }
     var showDotConnectGameDialog by remember { mutableStateOf(false) }
     var showTicTacToeGameDialog by remember { mutableStateOf(false) }
+    var showBlockPuzzleGameDialog by remember { mutableStateOf(false) }
     var reactionInitialGame by remember { mutableStateOf("SPEED_REFLEX") }
     var selectedCategoryView by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableStateOf("HOME") }
 
-    // User Energy Tokens state (Initial 20 Tokens Free)
+    // User Energy Tokens & Coins state (Initial 20 Tokens & 1000 Coins Free)
     var userTokens by rememberSaveable { mutableIntStateOf(20) }
+    var userCoins by rememberSaveable { mutableIntStateOf(1000) }
     var showOutOfTokensDialog by remember { mutableStateOf(false) }
+    var showCoinsShopDialog by remember { mutableStateOf(false) }
+    var showTokensShopDialog by remember { mutableStateOf(false) }
 
     // User Profile persistent state
     val profilePrefs = remember { context.getSharedPreferences("user_profile_prefs", Context.MODE_PRIVATE) }
@@ -374,9 +396,145 @@ fun HomeScreen() {
         }
     }
 
-    // Game history state
+    var pendingGamePreStart by remember { mutableStateOf<GamePreStartData?>(null) }
+
+    val launchPreStartFallingBottles = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Falling Bottle Catch",
+            badge = "🍾 BOTTLE CATCH",
+            description = "5 bottles hanging on ropes. A bottle drops suddenly! Catch it fast before it reaches the floor!",
+            benefit = "Reaction Speed & Catch Precision",
+            themeColor = Color(0xFF4CAF50),
+            emojiIcon = "🍾",
+            onLaunchGame = {
+                reactionInitialGame = "FALLING_BOTTLES"
+                showReactionGameDialog = true
+            }
+        )
+    }
+
+    val launchPreStartRedDot = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Red Dot Target",
+            badge = "🔴 RED DOT TARGET",
+            description = "Measure raw reaction speed! Tap as soon as the red dot ray bursts appear on screen.",
+            benefit = "Raw Reflex Speed",
+            themeColor = NeonYellow,
+            icon = Icons.Default.FlashOn,
+            onLaunchGame = {
+                reactionInitialGame = "SPEED_REFLEX"
+                showReactionGameDialog = true
+            }
+        )
+    }
+
+    val launchPreStartArrowClick = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Arrow Click Test",
+            badge = "🏹 ARROW CLICK",
+            description = "A black curved arrow appears pointing in a random angle. Tap the exact red head tip instantly!",
+            benefit = "Directional Focus & Visual Aim",
+            themeColor = NeonCyan,
+            icon = Icons.Default.TrackChanges,
+            onLaunchGame = {
+                reactionInitialGame = "ARROW_CLICK"
+                showReactionGameDialog = true
+            }
+        )
+    }
+
+    val launchPreStartMathGame = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Math Speed Challenge",
+            badge = "🔢 MATH SPEED",
+            description = "Solve rapid math equations under time pressure to boost mental speed and calculation accuracy.",
+            benefit = "Mental Math Agility",
+            themeColor = NeonYellow,
+            emojiIcon = "🔢",
+            onLaunchGame = { showMathGameDialog = true }
+        )
+    }
+
+    val launchPreStartMemoryGame = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Memory Grid Matrix",
+            badge = "🧠 MEMORY MATRIX",
+            description = "Memorize illuminated grid patterns and recall them accurately to expand visual working memory.",
+            benefit = "Spatial Working Memory",
+            themeColor = NeonCyan,
+            emojiIcon = "🧠",
+            onLaunchGame = { showMemoryGameDialog = true }
+        )
+    }
+
+    val launchPreStartDotConnect = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Dot Connect Puzzle",
+            badge = "🔮 DOT CONNECT",
+            description = "Connect all matching colored dot pairs without crossing path lines across the grid.",
+            benefit = "Spatial Logic & Planning",
+            themeColor = Color(0xFFA855F7),
+            emojiIcon = "🔮",
+            onLaunchGame = { showDotConnectGameDialog = true }
+        )
+    }
+
+    val launchPreStartTicTacToe = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Tic Tac Toe Cyber",
+            badge = "❌⭕ TIC TAC TOE",
+            description = "Outsmart the AI opponent or play 2-player local battle in this classic tactical grid game.",
+            benefit = "Tactical Thinking",
+            themeColor = Color(0xFF38BDF8),
+            emojiIcon = "❌⭕",
+            onLaunchGame = { showTicTacToeGameDialog = true }
+        )
+    }
+
+    val launchPreStartBlockPuzzle = {
+        pendingGamePreStart = GamePreStartData(
+            title = "Color Block Puzzle",
+            badge = "🧩 COLOR BLOCK PUZZLE",
+            description = "Fit colorful blocks onto the 8x8 grid. Drag/swipe blocks from bottom suggestions into position. Faint blocks glow brightly with smoke effects when placed or cleared!",
+            benefit = "Eye Focus & Spatial Vision",
+            themeColor = Color(0xFF00E676),
+            emojiIcon = "🧩",
+            onLaunchGame = { showBlockPuzzleGameDialog = true }
+        )
+    }
+
+    // Game history state (pre-populated with high quality vertical curved history items)
     val gameHistory = remember {
-        mutableStateListOf<GameHistoryRecord>()
+        mutableStateListOf(
+            GameHistoryRecord(gameName = "Math Challenge", score = 180, stars = 5, titleTag = "WIN", accuracyText = "95%", highestStreak = 12, timestamp = "10m ago"),
+            GameHistoryRecord(gameName = "Red Dot Target", score = 120, stars = 4, titleTag = "EXPERT", accuracyText = "90%", highestStreak = 8, timestamp = "1h ago"),
+            GameHistoryRecord(gameName = "Speed Arrow", score = 210, stars = 5, titleTag = "GRANDMASTER", accuracyText = "98%", highestStreak = 15, timestamp = "3h ago"),
+            GameHistoryRecord(gameName = "Bottle Catch", score = 80, stars = 3, titleTag = "AVERAGE", accuracyText = "85%", highestStreak = 5, timestamp = "Yesterday"),
+            GameHistoryRecord(gameName = "Color Flow", score = 150, stars = 5, titleTag = "MASTER", accuracyText = "100%", highestStreak = 10, timestamp = "Yesterday")
+        )
+    }
+
+    // Top-level Shared Missions List State
+    val missionsList = remember {
+        mutableStateListOf(
+            MissionItem("m1", "DAILY", "Play 3 Brain Games", "Play any 3 brain training games today", "🧠", 200, 2, 3, 1, false),
+            MissionItem("m2", "DAILY", "Enter Battle Arena", "Play a match in Battle Arena mode", "⚔️", 300, 3, 1, 0, false),
+            MissionItem("m3", "DAILY", "Math Master 100+ Score", "Score at least 100 points in Math Challenge", "🔢", 250, 0, 1, 0, false),
+            MissionItem("m4", "DAILY", "Speed Reflex Hit", "Complete 1 speed reflex test under 300ms", "⚡", 200, 2, 1, 1, false),
+            MissionItem("m5", "DAILY", "Connect 5 Dots", "Connect 5 dots in the Dot Connect puzzle", "🧩", 150, 0, 5, 2, false),
+            MissionItem("m6", "DAILY", "Defeat AI in Tic-Tac-Toe", "Win 1 match against AI bot", "🤖", 200, 1, 1, 0, false),
+            MissionItem("m7", "DAILY", "Arrow Click Reflex 0.2s", "Hit target arrow within 0.2 seconds", "🏹", 180, 0, 1, 0, false),
+            MissionItem("m8", "DAILY", "Watch Video Bonus", "Claim free coins bonus from store", "🎬", 500, 0, 1, 0, false),
+            MissionItem("m13", "DAILY", "Play 1 Hour a Day", "Spend 60 minutes playing brain training games", "⏰", 350, 2, 60, 45, false),
+            MissionItem("m14", "DAILY", "Daily Brain Trainer", "Keep your cognitive focus active", "🎯", 150, 1, 15, 8, false),
+            MissionItem("m15", "DAILY", "Pro Gamer Streak", "Win 5 matches in any category", "🏅", 400, 3, 5, 3, false),
+            MissionItem("m16", "DAILY", "Infinite Reflex", "Tap 50 target red dots successfully", "🔴", 250, 1, 50, 32, false),
+            MissionItem("m9", "ACHIEVEMENT", "Reach Level 5 Master", "Gain total 5,000 XP to reach Level 5", "👑", 1000, 10, 5, 1, false),
+            MissionItem("m10", "ACHIEVEMENT", "Maintain 3-Day Win Streak", "Win at least 1 game for 3 consecutive days", "🔥", 800, 5, 3, 1, false),
+            MissionItem("m11", "ACHIEVEMENT", "Play 10 Tournaments", "Participate in 10 Battle Tournaments", "🏆", 1500, 0, 10, 2, false),
+            MissionItem("m12", "ACHIEVEMENT", "Coin Collector 2,000", "Accumulate 2,000 total Coins in balance", "🪙", 500, 0, 2000, 1000, false),
+            MissionItem("m17", "ACHIEVEMENT", "Master Mind Champion", "Earn 3,500 total Brain XP", "🧬", 600, 4, 3500, 1250, false)
+        )
     }
 
     val showSoonToast = {
@@ -412,10 +570,244 @@ fun HomeScreen() {
             },
             confirmButton = {
                 Button(
-                    onClick = { showOutOfTokensDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = CyberSurfaceVariant)
+                    onClick = {
+                        showOutOfTokensDialog = false
+                        showTokensShopDialog = true
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = NeonYellow)
                 ) {
-                    Text("OK", color = TextPrimary, fontWeight = FontWeight.Bold)
+                    Text("GET POWER TOKENS", color = Color.Black, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (showCoinsShopDialog) {
+        AlertDialog(
+            onDismissRequest = { showCoinsShopDialog = false },
+            containerColor = CyberSurface,
+            titleContentColor = TextPrimary,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("🪙", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("COIN STORE", fontWeight = FontWeight.Black, fontSize = 16.sp, color = NeonGold)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Current Balance: $userCoins Coins 🪙",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Coins are required to enter Battle Tournaments and unlock special rewards!",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+
+                    // Option 1: Watch Ad for Free Coins
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonCyan, RoundedCornerShape(12.dp))
+                            .clickable {
+                                userCoins += 500
+                                Toast.makeText(context, "🎬 Ad Watched! +500 Free Coins Added! 🪙", Toast.LENGTH_LONG).show()
+                                showCoinsShopDialog = false
+                            },
+                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🎬", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("WATCH SPONSORED AD", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Get +500 Coins for Free", color = TextMuted, fontSize = 9.sp)
+                                }
+                            }
+                            Text("FREE", color = NeonGreen, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                        }
+                    }
+
+                    // Option 2: Daily Bonus
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonGold, RoundedCornerShape(12.dp))
+                            .clickable {
+                                userCoins += 300
+                                Toast.makeText(context, "🎁 Daily Bonus Claimed! +300 Coins! 🪙", Toast.LENGTH_LONG).show()
+                                showCoinsShopDialog = false
+                            },
+                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🎁", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("DAILY BONUS REWARD", color = NeonGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Claim +300 Free Coins", color = TextMuted, fontSize = 9.sp)
+                                }
+                            }
+                            Text("CLAIM", color = NeonGold, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                        }
+                    }
+
+                    // Option 3: Mega Coin Pack
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonPurpleBright, RoundedCornerShape(12.dp))
+                            .clickable {
+                                userCoins += 2000
+                                Toast.makeText(context, "👑 Mega Pack Claimed! +2000 Coins! 🪙", Toast.LENGTH_LONG).show()
+                                showCoinsShopDialog = false
+                            },
+                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("👑", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("MEGA COIN PACK", color = NeonPurpleBright, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Get +2000 Coins Instant", color = TextMuted, fontSize = 9.sp)
+                                }
+                            }
+                            Text("GET", color = NeonPurpleBright, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showCoinsShopDialog = false }) {
+                    Text("CLOSE", color = TextMuted, fontWeight = FontWeight.Bold)
+                }
+            }
+        )
+    }
+
+    if (showTokensShopDialog) {
+        AlertDialog(
+            onDismissRequest = { showTokensShopDialog = false },
+            containerColor = CyberSurface,
+            titleContentColor = TextPrimary,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("⚡", fontSize = 22.sp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("POWER TOKENS STORE", fontWeight = FontWeight.Black, fontSize = 16.sp, color = NeonYellow)
+                }
+            },
+            text = {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = "Current Power: $userTokens/20 Tokens ⚡",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Each game match costs 1 Power Token.",
+                        color = TextSecondary,
+                        fontSize = 11.sp
+                    )
+
+                    // Option 1: Watch Ad to Refill
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonYellow, RoundedCornerShape(12.dp))
+                            .clickable {
+                                userTokens = (userTokens + 10).coerceAtMost(20)
+                                Toast.makeText(context, "⚡ Ad Watched! +10 Power Tokens Restored!", Toast.LENGTH_LONG).show()
+                                showTokensShopDialog = false
+                            },
+                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🎬", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("WATCH VIDEO AD", color = NeonYellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Refill +10 Power Tokens", color = TextMuted, fontSize = 9.sp)
+                                }
+                            }
+                            Text("FREE", color = NeonGreen, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                        }
+                    }
+
+                    // Option 2: Full Refill with Coins
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .border(1.dp, NeonCyan, RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (userCoins >= 100) {
+                                    userCoins -= 100
+                                    userTokens = 20
+                                    Toast.makeText(context, "⚡ Full Refill! 20 Power Tokens Restored (-100 Coins)", Toast.LENGTH_LONG).show()
+                                    showTokensShopDialog = false
+                                } else {
+                                    Toast.makeText(context, "🪙 Not enough coins! Need 100 coins.", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("🪙", fontSize = 18.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Column {
+                                    Text("INSTANT FULL REFILL", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Refill to Max 20 Tokens", color = TextMuted, fontSize = 9.sp)
+                                }
+                            }
+                            Text("100 🪙", color = NeonGold, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showTokensShopDialog = false }) {
+                    Text("CLOSE", color = TextMuted, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -471,6 +863,29 @@ fun HomeScreen() {
         )
     }
 
+    if (showBlockPuzzleGameDialog) {
+        BlockPuzzleGameDialog(
+            onDismiss = { showBlockPuzzleGameDialog = false },
+            onGameFinished = { record ->
+                gameHistory.add(0, record)
+            }
+        )
+    }
+
+    if (pendingGamePreStart != null) {
+        GamePreStartDialog(
+            data = pendingGamePreStart!!,
+            onDismiss = { pendingGamePreStart = null },
+            onStartClick = {
+                val preData = pendingGamePreStart
+                pendingGamePreStart = null
+                if (preData != null) {
+                    tryStartGame { preData.onLaunchGame() }
+                }
+            }
+        )
+    }
+
     Scaffold(
         containerColor = CyberBackground,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -496,11 +911,11 @@ fun HomeScreen() {
             val screenHeight = maxHeight
             val isCompactWidth = screenWidth < 360.dp
             val isCompactHeight = screenHeight < 640.dp
-
+ 
             val adaptiveHorizontalPadding = if (isCompactWidth) 10.dp else 16.dp
             val adaptiveVerticalPadding = if (isCompactHeight) 4.dp else 6.dp
             val adaptiveItemSpacing = if (isCompactHeight) 8.dp else 10.dp
-
+ 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -515,43 +930,27 @@ fun HomeScreen() {
                     onClick = { selectedTab = "PROFILE" },
                     onSettingsClick = { showSettingsDialog = true },
                     tokens = userTokens,
-                    onTokensClick = {
-                        Toast.makeText(context, "⚡ Tokens: $userTokens/20 available (1 Token per game)", Toast.LENGTH_SHORT).show()
-                    },
+                    coins = userCoins,
+                    onTokensClick = { showTokensShopDialog = true },
+                    onCoinsClick = { showCoinsShopDialog = true },
                     userName = userName,
                     userEmoji = userEmoji
                 )
-
+ 
                 if (selectedCategoryView != null) {
                     // Category-Specific Games Interface View with Swipeable Games Carousel
                     Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
                         CategoryGamesInterface(
                             categoryKey = selectedCategoryView!!,
                             onBackClick = { selectedCategoryView = null },
-                            onPlayReactionSpeed = {
-                                tryStartGame {
-                                    reactionInitialGame = "SPEED_REFLEX"
-                                    showReactionGameDialog = true
-                                }
-                            },
-                            onPlayArrowClick = {
-                                tryStartGame {
-                                    reactionInitialGame = "ARROW_CLICK"
-                                    showReactionGameDialog = true
-                                }
-                            },
-                            onPlayMemoryGame = {
-                                tryStartGame { showMemoryGameDialog = true }
-                            },
-                            onPlayMathGame = {
-                                tryStartGame { showMathGameDialog = true }
-                            },
-                            onPlayDotConnect = {
-                                tryStartGame { showDotConnectGameDialog = true }
-                            },
-                            onPlayTicTacToe = {
-                                tryStartGame { showTicTacToeGameDialog = true }
-                            }
+                            onPlayReactionSpeed = { launchPreStartRedDot() },
+                            onPlayArrowClick = { launchPreStartArrowClick() },
+                            onPlayFallingBottles = { launchPreStartFallingBottles() },
+                            onPlayMemoryGame = { launchPreStartMemoryGame() },
+                            onPlayMathGame = { launchPreStartMathGame() },
+                            onPlayDotConnect = { launchPreStartDotConnect() },
+                            onPlayTicTacToe = { launchPreStartTicTacToe() },
+                            onPlayBlockPuzzle = { launchPreStartBlockPuzzle() }
                         )
                     }
                 } else {
@@ -566,7 +965,7 @@ fun HomeScreen() {
                                     onSaveProfile = { newName, newBio, newEmoji ->
                                         updateProfile(newName, newBio, newEmoji)
                                     },
-                                    onPlayMathGame = { tryStartGame { showMathGameDialog = true } },
+                                    onPlayMathGame = { launchPreStartMathGame() },
                                     onOpenSettings = { showSettingsDialog = true },
                                     gameHistory = gameHistory
                                 )
@@ -579,16 +978,39 @@ fun HomeScreen() {
                                     onSaveBattleHistory = { record ->
                                         gameHistory.add(0, record)
                                     },
-                                    onTryStartGame = tryStartGame
+                                    onTryStartGame = tryStartGame,
+                                    userCoins = userCoins,
+                                    onCoinsChange = { newCoins -> userCoins = newCoins },
+                                    onOpenCoinsShop = { showCoinsShopDialog = true }
                                 )
                             }
                         }
                         "PROGRESS" -> {
-                            // Dedicated Progress & Saved History View
+                            // Dedicated Progress & Rewards View
                             Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
-                                ProgressTabScreen(
+                                MissionsTabScreen(
+                                    userCoins = userCoins,
+                                    userTokens = userTokens,
+                                    missionsList = missionsList,
                                     gameHistory = gameHistory,
-                                    onPlayMathGame = { tryStartGame { showMathGameDialog = true } }
+                                    onRewardClaimed = { coins, tokens ->
+                                        userCoins += coins
+                                        userTokens = (userTokens + tokens).coerceAtMost(20)
+                                    },
+                                    onOpenGame = { gameTitle ->
+                                        // Match mission title to actual game prestart
+                                        val lowercaseTitle = gameTitle.lowercase()
+                                        when {
+                                            lowercaseTitle.contains("math") -> launchPreStartMathGame()
+                                            lowercaseTitle.contains("reflex") || lowercaseTitle.contains("target") -> launchPreStartRedDot()
+                                            lowercaseTitle.contains("arrow") -> launchPreStartArrowClick()
+                                            lowercaseTitle.contains("dot") || lowercaseTitle.contains("connect") -> launchPreStartDotConnect()
+                                            lowercaseTitle.contains("tic") || lowercaseTitle.contains("toe") -> launchPreStartTicTacToe()
+                                            lowercaseTitle.contains("memory") -> launchPreStartMemoryGame()
+                                            lowercaseTitle.contains("bottle") -> launchPreStartFallingBottles()
+                                            else -> launchPreStartMathGame()
+                                        }
+                                    }
                                 )
                             }
                         }
@@ -597,29 +1019,16 @@ fun HomeScreen() {
                             GamesInterfaceSection(
                                 horizontalPadding = adaptiveHorizontalPadding,
                                 onClick = showSoonToast,
-                                onMathClick = { tryStartGame { showMathGameDialog = true } },
-                                onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
-                                onReactionClick = {
-                                    tryStartGame {
-                                        reactionInitialGame = "SPEED_REFLEX"
-                                        showReactionGameDialog = true
-                                    }
-                                },
-                                onArrowClick = {
-                                    tryStartGame {
-                                        reactionInitialGame = "ARROW_CLICK"
-                                        showReactionGameDialog = true
-                                    }
-                                },
-                                onDotConnectClick = {
-                                    tryStartGame { showDotConnectGameDialog = true }
-                                },
-                                onTicTacToeClick = {
-                                    tryStartGame { showTicTacToeGameDialog = true }
-                                },
+                                onMathClick = { launchPreStartMathGame() },
+                                onMemoryClick = { launchPreStartMemoryGame() },
+                                onReactionClick = { launchPreStartRedDot() },
+                                onArrowClick = { launchPreStartArrowClick() },
+                                onDotConnectClick = { launchPreStartDotConnect() },
+                                onTicTacToeClick = { launchPreStartTicTacToe() },
                                 onCategoryClick = { categoryKey ->
                                     selectedCategoryView = categoryKey
-                                }
+                                },
+                                onFallingBottlesClick = { launchPreStartFallingBottles() }
                             )
                         }
                         else -> {
@@ -629,40 +1038,47 @@ fun HomeScreen() {
                                 onClick = { selectedTab = "PROGRESS" }
                             )
 
-                            // 2. Swipeable Offer Banners Carousel
+                            // 2. Homescreen Daily Missions Overview Card
+                            MissionsOverviewCard(
+                                missionsList = missionsList,
+                                horizontalPadding = adaptiveHorizontalPadding,
+                                onSeeAllClick = { selectedTab = "PROGRESS" },
+                                onOpenGame = { gameTitle ->
+                                    val lowercaseTitle = gameTitle.lowercase()
+                                    when {
+                                        lowercaseTitle.contains("math") -> launchPreStartMathGame()
+                                        lowercaseTitle.contains("reflex") || lowercaseTitle.contains("target") -> launchPreStartRedDot()
+                                        lowercaseTitle.contains("arrow") -> launchPreStartArrowClick()
+                                        lowercaseTitle.contains("dot") || lowercaseTitle.contains("connect") -> launchPreStartDotConnect()
+                                        lowercaseTitle.contains("tic") || lowercaseTitle.contains("toe") -> launchPreStartTicTacToe()
+                                        lowercaseTitle.contains("memory") -> launchPreStartMemoryGame()
+                                        lowercaseTitle.contains("bottle") -> launchPreStartFallingBottles()
+                                        else -> launchPreStartMathGame()
+                                    }
+                                }
+                            )
+
+                            // 3. Swipeable Offer Banners Carousel
                             OfferBannersCarousel(
                                 horizontalPadding = adaptiveHorizontalPadding,
-                                onClick = { tryStartGame { showMathGameDialog = true } }
+                                onClick = { launchPreStartMathGame() }
                             )
 
                             // Brain Games Section Grid
                             TrainYourBrainSection(
                                 horizontalPadding = adaptiveHorizontalPadding,
                                 onClick = showSoonToast,
-                                onMathClick = { tryStartGame { showMathGameDialog = true } },
-                                onMemoryClick = { tryStartGame { showMemoryGameDialog = true } },
-                                onReactionClick = {
-                                    tryStartGame {
-                                        reactionInitialGame = "SPEED_REFLEX"
-                                        showReactionGameDialog = true
-                                    }
-                                },
-                                onDotConnectClick = {
-                                    tryStartGame { showDotConnectGameDialog = true }
-                                },
-                                onTicTacToeClick = {
-                                    tryStartGame { showTicTacToeGameDialog = true }
-                                },
+                                onMathClick = { launchPreStartMathGame() },
+                                onMemoryClick = { launchPreStartMemoryGame() },
+                                onReactionClick = { launchPreStartRedDot() },
+                                onDotConnectClick = { launchPreStartDotConnect() },
+                                onTicTacToeClick = { launchPreStartTicTacToe() },
                                 onCategoryClick = { categoryKey ->
                                     selectedCategoryView = categoryKey
-                                }
+                                },
+                                onFallingBottlesClick = { launchPreStartFallingBottles() }
                             )
 
-                            // Daily Challenge Section
-                            DailyChallengeCard(
-                                horizontalPadding = adaptiveHorizontalPadding,
-                                onClick = { tryStartGame { showMathGameDialog = true } }
-                            )
                         }
                     }
                 }
@@ -679,7 +1095,9 @@ fun TopBarSection(
     onClick: () -> Unit,
     onSettingsClick: () -> Unit = onClick,
     tokens: Int = 20,
+    coins: Int = 1000,
     onTokensClick: () -> Unit = {},
+    onCoinsClick: () -> Unit = {},
     userName: String = "Sameer Choudhary",
     userEmoji: String = "👑"
 ) {
@@ -700,7 +1118,7 @@ fun TopBarSection(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(34.dp)
                     .clip(CircleShape)
                     .background(
                         Brush.linearGradient(
@@ -719,18 +1137,18 @@ fun TopBarSection(
                 ) {
                     Text(
                         text = userEmoji,
-                        fontSize = 20.sp
+                        fontSize = 16.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(6.dp))
 
             Column {
                 Text(
                     text = userName,
                     color = TextPrimary,
-                    fontSize = 14.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -738,11 +1156,40 @@ fun TopBarSection(
             }
         }
 
-        // Energy & Settings
+        // Coins, Energy & Settings
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
+            // Coins Pill
+            Row(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(CyberSurfaceVariant)
+                    .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp))
+                    .clickable { onCoinsClick() }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "🪙",
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.width(3.dp))
+                Text(
+                    text = "$coins",
+                    color = NeonGold,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = " +",
+                    color = NeonCyan,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
             // Energy Pill
             Row(
                 modifier = Modifier
@@ -750,34 +1197,34 @@ fun TopBarSection(
                     .background(CyberSurfaceVariant)
                     .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp))
                     .clickable { onTokensClick() }
-                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Default.FlashOn,
                     contentDescription = "Energy Icon",
                     tint = NeonYellow,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(14.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(2.dp))
                 Text(
-                    text = "$tokens/20",
+                    text = "$tokens",
                     color = TextPrimary,
-                    fontSize = 13.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
                     text = " +",
                     color = NeonPurpleBright,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
                 )
             }
 
             // Settings Gear Icon
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(32.dp)
                     .clip(CircleShape)
                     .background(CyberSurfaceVariant)
                     .border(1.dp, CyberCardBorder, CircleShape)
@@ -789,7 +1236,7 @@ fun TopBarSection(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
                     tint = TextSecondary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(16.dp)
                 )
             }
         }
@@ -1266,6 +1713,104 @@ fun StreakCardBadge(count: String, label: String) {
 
 
 
+
+@Composable
+fun BattleArenaHomeCard(
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = horizontalPadding)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .clickable { onClick() }
+                .border(1.dp, Color(0xFFFF4444).copy(alpha = 0.5f), RoundedCornerShape(20.dp))
+                .testTag("battle_arena_home_card"),
+            colors = CardDefaults.cardColors(containerColor = CyberSurface)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        modifier = Modifier.weight(1f),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFFFF4444).copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("⚔️", fontSize = 22.sp)
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "BATTLE ARENA ⚔️",
+                                    color = TextPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color(0xFFFF4444))
+                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                ) {
+                                    Text("LIVE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                                }
+                            }
+                            Text(
+                                text = "2 to 100 Players Pass & Play • Win 500 Coins!",
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                androidx.compose.ui.graphics.Brush.horizontalGradient(
+                                    listOf(Color(0xFFFF4444), Color(0xFFFF6B00))
+                                )
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "ENTER ⚔️",
+                            color = Color.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
 
 @Composable
 fun DailyChallengeCard(
@@ -2462,6 +3007,146 @@ fun DotConnectGameMockup(themeColor: Color) {
 }
 
 @Composable
+fun FallingBottlesGameMockup(themeColor: Color) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text("🍾", fontSize = 28.sp)
+            Spacer(modifier = Modifier.height(2.dp))
+            Box(
+                modifier = Modifier
+                    .width(42.dp)
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp))
+                    .background(themeColor)
+            )
+        }
+    }
+}
+
+@Composable
+fun GamePosterGraphic(
+    title: String,
+    themeColor: Color,
+    icon: ImageVector,
+    modifier: Modifier = Modifier
+) {
+    val titleKey = title.lowercase()
+    val isBottle = titleKey.contains("bottle") || titleKey.contains("catch")
+    val isArrow = titleKey.contains("arrow")
+    val isTicTacToe = titleKey.contains("tic") || titleKey.contains("toe")
+    val isDotConnect = titleKey.contains("dot") || titleKey.contains("connect") || titleKey.contains("one line") || titleKey.contains("flow")
+    val isMemory = titleKey.contains("memory") || titleKey.contains("matrix") || titleKey.contains("grid")
+    val isMath = titleKey.contains("math") || titleKey.contains("duel") || titleKey.contains("calc") || titleKey.contains("arithmetic")
+    val isReasoning = titleKey.contains("reasoning") || titleKey.contains("logic") || titleKey.contains("shapes")
+    val isRedDot = titleKey.contains("red") || titleKey.contains("dot") || titleKey.contains("reaction") || titleKey.contains("speed") || titleKey.contains("target") || titleKey.contains("reflex") || titleKey.contains("focus")
+
+    val imageRes = when {
+        isBottle -> R.drawable.img_poster_bottle_catch
+        isArrow -> R.drawable.img_poster_arrow_click
+        isTicTacToe -> R.drawable.img_poster_tic_tac_toe
+        isDotConnect -> R.drawable.img_poster_dot_connect
+        isMemory -> R.drawable.img_poster_memory_matrix
+        isMath -> R.drawable.img_poster_math_duel
+        isReasoning -> R.drawable.img_poster_logic_shapes
+        isRedDot -> R.drawable.img_poster_red_dot
+        else -> null
+    }
+
+    val badgeText = when {
+        isBottle -> "NEW"
+        isArrow -> "FAST"
+        isTicTacToe -> "PVAI"
+        isDotConnect -> "BRAIN"
+        isMemory -> "RECALL"
+        isMath -> "DUEL"
+        isReasoning -> "IQ TEST"
+        isRedDot -> "HOT"
+        else -> "BEST"
+    }
+
+    val badgeBgColor = when {
+        isBottle -> Color(0xFF4ADE80)
+        isArrow -> Color(0xFFFBBF24)
+        isTicTacToe -> Color(0xFF38BDF8)
+        isDotConnect -> Color(0xFFA855F7)
+        isMemory -> Color(0xFF6366F1)
+        isMath -> Color(0xFFF97316)
+        isReasoning -> Color(0xFF06B6D4)
+        isRedDot -> Color(0xFFEF4444)
+        else -> Color.White
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(185.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color(0xFF0F172A))
+            .border(1.dp, themeColor.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+    ) {
+        if (imageRes != null) {
+            Image(
+                painter = painterResource(id = imageRes),
+                contentDescription = title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            // High quality fallback vector background
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF0F172A), themeColor.copy(alpha = 0.3f), Color(0xFF0F172A))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(CircleShape)
+                        .background(themeColor.copy(alpha = 0.2f))
+                        .border(1.5.dp, themeColor, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = themeColor,
+                        modifier = Modifier.size(30.dp)
+                    )
+                }
+            }
+        }
+
+        // Top Badge Pill Corner (New/Hot/Popular/Multiplayer)
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 8.dp, end = 8.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(badgeBgColor)
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = badgeText,
+                color = Color.Black,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
+@Composable
 fun GameBannerCard(
     title: String,
     score: String,
@@ -2472,229 +3157,86 @@ fun GameBannerCard(
     modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    val difficulty = when (title.lowercase()) {
-        "reaction" -> "EASY"
-        "focus" -> "MEDIUM"
-        "memory" -> "MEDIUM"
-        "reasoning" -> "HARD"
-        "math duel" -> "MEDIUM"
-        "mental math" -> "HARD"
-        "dot connect" -> "EASY"
-        else -> "MEDIUM"
+    val descriptionText = when (title.lowercase()) {
+        "red dot", "reaction" -> "Tap fast-moving red target dots to boost your reflex speed & accuracy."
+        "arrow click", "arrow" -> "Master split-second reaction times by hitting glowing arrow tips."
+        "bottle catch", "falling bottles" -> "Catch falling bottle drops before they smash in this reflex drill."
+        "tic tac toe" -> "Classic 3x3 tactical strategy arena. Outsmart your opponent with smart moves."
+        "dot connect", "one line connect" -> "Connect all matching colored dots in 1 continuous path without overlap."
+        "memory", "grid memory" -> "Memorize glowing card patterns and train your brain's spatial recall."
+        "math duel", "speed calc" -> "Rapid arithmetic challenge. Solve equations fast under time pressure."
+        "mental math" -> "Test rapid calculation skills and arithmetic accuracy under time trial."
+        "reasoning", "logic shapes" -> "Identify pattern logic and match geometric shapes to boost IQ skills."
+        else -> "Fun brain training puzzle game to boost cognitive focus and speed."
     }
 
-    val duration = when (title.lowercase()) {
-        "reaction" -> "30s"
-        "focus" -> "45s"
-        "memory" -> "60s"
-        "reasoning" -> "90s"
-        "math duel" -> "30s"
-        "mental math" -> "45s"
-        "dot connect" -> "60s"
-        else -> "60s"
+    val cardBgColor = when (title.lowercase()) {
+        "bottle catch", "falling bottles" -> Color(0xFF1E281B)
+        "red dot", "reaction" -> Color(0xFF281C20)
+        "arrow click", "arrow" -> Color(0xFF28241B)
+        "tic tac toe", "dot connect" -> Color(0xFF1B242D)
+        "memory", "reasoning" -> Color(0xFF221A2C)
+        else -> Color(0xFF1E241E)
     }
 
-    val cognitiveStat = when (title.lowercase()) {
-        "reaction" -> "⚡ Speed: +25%"
-        "focus" -> "🎯 Accuracy: +30%"
-        "memory" -> "🧠 Recall: +20%"
-        "reasoning" -> "🧩 Logic: +35%"
-        "math duel" -> "⚔️ IQ Power: +40%"
-        "mental math" -> "🔢 Calc Speed: +35%"
-        "dot connect" -> "🔴 Path Logic: +30%"
-        else -> "🧠 Focus: +15%"
-    }
-
-    val youtubeTitle = when (title.lowercase()) {
-        "reaction" -> "⚡ SPEED REFLEX TEST • Can you beat 200ms?"
-        "arrow click", "arrow click test", "arrow" -> "🏹 ARROW CLICK CHALLENGE • 0.1s Reflex Hit!"
-        "dot connect", "dot connect puzzle", "dot", "dots" -> "🔴 ONE LINE DOT CONNECT • Connect All Dots in 1 Path!"
-        "focus" -> "🎯 PRECISION AIM FOCUS • 100% Target Precision"
-        "memory" -> "🧠 GRID MEMORY MATRIX • Train Spatial Recall"
-        "reasoning" -> "🧩 SPATIAL LOGIC DRILL • Pattern Speed Test"
-        "math duel" -> "🔢 SPEED MATH DUEL • Rapid Mental Calculation"
-        "mental math" -> "➕ ARITHMETIC SPEED DRILL • Calculator Fast!"
-        else -> "⚡ ULTIMATE BRAIN TRAINING CHALLENGE"
-    }
+    val cardBorderColor = themeColor.copy(alpha = 0.45f)
 
     Card(
         modifier = modifier
-            .width(160.dp)
-            .height(235.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.2.dp, CyberCardBorder, RoundedCornerShape(14.dp))
+            .width(175.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .border(1.5.dp, cardBorderColor, RoundedCornerShape(22.dp))
             .clickable { onClick() }
             .testTag("game_banner_card_$title"),
-        colors = CardDefaults.cardColors(containerColor = CyberSurface)
+        colors = CardDefaults.cardColors(containerColor = cardBgColor)
     ) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(8.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Centered Image Mockup Box (Top position)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(82.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                CyberSurfaceVariant,
-                                themeColor.copy(alpha = 0.18f)
-                            )
-                        )
-                    )
-                    .border(
-                        1.dp, 
-                        Brush.linearGradient(
-                            colors = listOf(
-                                CyberCardBorder,
-                                themeColor.copy(alpha = 0.6f)
-                            )
-                        ), 
-                        RoundedCornerShape(10.dp)
-                    )
-                    .padding(2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                when (title.lowercase()) {
-                    "tic tac toe", "tic tac toe strategy", "tictactoe" -> TicTacToeGameMockup(themeColor)
-                    "reaction" -> ReactionGameMockup(themeColor)
-                    "arrow click", "arrow click test", "arrow" -> ArrowClickGameMockup(themeColor)
-                    "dot connect", "dot connect puzzle", "dot", "dots" -> DotConnectGameMockup(themeColor)
-                    "focus" -> FocusGameMockup(themeColor)
-                    "memory" -> MemoryGameMockup(themeColor)
-                    "reasoning" -> ReasoningGameMockup(themeColor)
-                    "math duel" -> MathDuelGameMockup(themeColor)
-                    "mental math" -> MentalMathGameMockup(themeColor)
-                    else -> {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            TechGridBackground(themeColor)
-                            Box(
-                                modifier = Modifier
-                                    .size(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(themeColor.copy(alpha = 0.15f))
-                                    .border(1.2.dp, themeColor, RoundedCornerShape(12.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = icon,
-                                    contentDescription = null,
-                                    tint = themeColor,
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // 2. Details Header (Title & Score)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    color = TextPrimary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.3.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = if (score == "N/A") "Upcoming" else "Best: $score",
-                    color = TextSecondary,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-
-            // 3. Clean Title Subtitle without Black Strip Box
-            Text(
-                text = youtubeTitle,
-                color = TextSecondary,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(vertical = 2.dp)
+            // 1. High Quality Vertical Game Poster Image Box
+            GamePosterGraphic(
+                title = title,
+                themeColor = themeColor,
+                icon = icon
             )
 
-            // 4. Benefit Tag & Cognitive Stat Pill
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = benefit,
-                    color = TextMuted,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
+            Spacer(modifier = Modifier.height(10.dp))
 
-                // Cognitive Stats Pill
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(themeColor.copy(alpha = 0.12f))
-                        .padding(horizontal = 4.dp, vertical = 2.dp)
-                ) {
-                    Text(
-                        text = cognitiveStat.split(": ").lastOrNull() ?: cognitiveStat,
-                        color = themeColor,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            // 5. PLAY NOW Button
+            // 2. Fully Rounded Pill Action Button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(themeColor)
-                    .clickable { onClick() }
-                    .padding(vertical = 6.dp),
+                    .height(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF7FAEC))
+                    .clickable { onClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Text(
-                        text = "PLAY NOW",
-                        color = Color.Black,
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.3.sp
-                    )
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Icon(
-                        imageVector = Icons.Default.ArrowForward,
-                        contentDescription = null,
-                        tint = Color.Black,
-                        modifier = Modifier.size(10.dp)
-                    )
-                }
+                Text(
+                    text = if (score != "N/A" && score.isNotEmpty()) "Continue" else "Play",
+                    color = Color(0xFF233019),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.3.sp
+                )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 3. Short Game Description Text below button (As explicitly requested by user)
+            Text(
+                text = descriptionText,
+                color = Color(0xFFCBD5E1),
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
+            )
         }
     }
 }
@@ -2708,12 +3250,15 @@ fun CategoryGamesInterface(
     onPlayMemoryGame: () -> Unit,
     onPlayMathGame: () -> Unit,
     onPlayDotConnect: () -> Unit = {},
-    onPlayTicTacToe: () -> Unit = {}
+    onPlayTicTacToe: () -> Unit = {},
+    onPlayFallingBottles: () -> Unit = {},
+    onPlayBlockPuzzle: () -> Unit = {}
 ) {
     val categoryTitle = when (categoryKey) {
         "REACTION_FOCUS" -> "⚡ REACTION & FOCUS"
         "MEMORY_REASONING" -> "🧠 MEMORY & REASONING"
         "MATH_CALCULATION" -> "🔢 MATH & CALCULATION"
+        "EYE_FITNESS" -> "👁️ EYE FITNESS"
         else -> "🎮 GAMES INTERFACE"
     }
 
@@ -2721,6 +3266,7 @@ fun CategoryGamesInterface(
         "REACTION_FOCUS" -> NeonYellow
         "MEMORY_REASONING" -> NeonPurpleBright
         "MATH_CALCULATION" -> Color(0xFFFF7A00)
+        "EYE_FITNESS" -> Color(0xFF00E676)
         else -> NeonCyan
     }
 
@@ -2793,18 +3339,6 @@ fun CategoryGamesInterface(
                         horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         CategoryGameCardItem(
-                            title = "Speed Reflex Test",
-                            badge = "⚡ SPEED TAP",
-                            benefit = "Fast Reaction",
-                            description = "Measure raw reaction speed! Tap as soon as screen turns GREEN.",
-                            score = "180 ms",
-                            icon = Icons.Default.FlashOn,
-                            themeColor = NeonYellow,
-                            previewGraphicTitle = "reaction",
-                            modifier = Modifier.weight(1f),
-                            onPlayClick = onPlayReactionSpeed
-                        )
-                        CategoryGameCardItem(
                             title = "Red Dot Target",
                             badge = "🔴 RED DOT TARGET",
                             benefit = "Target Reflex",
@@ -2816,12 +3350,6 @@ fun CategoryGamesInterface(
                             modifier = Modifier.weight(1f),
                             onPlayClick = onPlayReactionSpeed
                         )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
                         CategoryGameCardItem(
                             title = "Arrow Click Test",
                             badge = "🏹 ARROW CLICK",
@@ -2834,18 +3362,25 @@ fun CategoryGamesInterface(
                             modifier = Modifier.weight(1f),
                             onPlayClick = onPlayArrowClick
                         )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         CategoryGameCardItem(
-                            title = "Aim Focus Target",
-                            badge = "🎯 AIM TARGET",
-                            benefit = "Visual Tracking",
-                            description = "Train visual precision and sustained focus under time limits.",
-                            score = "604 pts",
-                            icon = Icons.Default.TrackChanges,
-                            themeColor = NeonCyan,
-                            previewGraphicTitle = "focus",
+                            title = "Falling Bottle Catch",
+                            badge = "🍾 BOTTLE CATCH",
+                            benefit = "Sudden Reaction",
+                            description = "5 बोतलें लटकी हुई हैं। गिरती हुई बोतल को ज़मीन पर गिरने से पहले पकड़ें!",
+                            score = "280 ms",
+                            icon = Icons.Default.FlashOn,
+                            themeColor = Color(0xFF4CAF50),
+                            previewGraphicTitle = "reaction",
                             modifier = Modifier.weight(1f),
-                            onPlayClick = onPlayReactionSpeed
+                            onPlayClick = onPlayFallingBottles
                         )
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
                 "MEMORY_REASONING" -> {
@@ -2866,24 +3401,6 @@ fun CategoryGamesInterface(
                             onPlayClick = onPlayTicTacToe
                         )
                         CategoryGameCardItem(
-                            title = "Dot Connect",
-                            badge = "🔴 ONE LINE CONNECT",
-                            benefit = "Path Logic",
-                            description = "Connect all dots on grid in single unbroken line path!",
-                            score = "Level 5",
-                            icon = Icons.Default.Grain,
-                            themeColor = NeonYellow,
-                            previewGraphicTitle = "dot connect",
-                            modifier = Modifier.weight(1f),
-                            onPlayClick = onPlayDotConnect
-                        )
-                    }
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        CategoryGameCardItem(
                             title = "Grid Memory",
                             badge = "🧠 GRID MATCH",
                             benefit = "Spatial Memory",
@@ -2895,6 +3412,12 @@ fun CategoryGamesInterface(
                             modifier = Modifier.weight(1f),
                             onPlayClick = onPlayMemoryGame
                         )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         CategoryGameCardItem(
                             title = "Logic Shapes",
                             badge = "🧩 LOGIC SHAPES",
@@ -2907,6 +3430,7 @@ fun CategoryGamesInterface(
                             modifier = Modifier.weight(1f),
                             onPlayClick = onPlayMemoryGame
                         )
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
                 "MATH_CALCULATION" -> {
@@ -2937,6 +3461,37 @@ fun CategoryGamesInterface(
                             previewGraphicTitle = "mental math",
                             modifier = Modifier.weight(1f),
                             onPlayClick = onPlayMathGame
+                        )
+                    }
+                }
+                "EYE_FITNESS" -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        CategoryGameCardItem(
+                            title = "Color Block Puzzle",
+                            badge = "🧩 COLOR BLOCK PUZZLE",
+                            benefit = "Eye Focus & Spatial Vision",
+                            description = "Fit colorful blocks on 8x8 grid. Drag & place bottom suggestions with smoke effects!",
+                            score = "428 High",
+                            icon = Icons.Default.Widgets,
+                            themeColor = Color(0xFF00E676),
+                            previewGraphicTitle = "block puzzle",
+                            modifier = Modifier.weight(1f),
+                            onPlayClick = onPlayBlockPuzzle
+                        )
+                        CategoryGameCardItem(
+                            title = "Color Flow Connect",
+                            badge = "🎨 COLOR FLOW CONNECT",
+                            benefit = "Non-Overlapping Color Match",
+                            description = "Connect matching color dots with glowing pipes without overlapping lines!",
+                            score = "Level 10",
+                            icon = Icons.Default.Palette,
+                            themeColor = Color(0xFF00E5FF),
+                            previewGraphicTitle = "dot connect",
+                            modifier = Modifier.weight(1f),
+                            onPlayClick = onPlayDotConnect
                         )
                     }
                 }
@@ -2972,26 +3527,20 @@ fun CategoryGameCardItem(
     modifier: Modifier = Modifier,
     onPlayClick: () -> Unit
 ) {
-    val youtubeTitle = when (title.lowercase()) {
-        "speed reflex test", "reaction" -> "⚡ SPEED REFLEX TEST • Beat 200ms!"
-        "red dot target", "red dot reflex", "red dot", "dot target" -> "🔴 RED DOT TARGET • Ocean Ripple Hits!"
-        "arrow click test", "arrow click", "arrow" -> "🏹 ARROW CLICK • 0.1s Reflex Hit!"
-        "dot connect puzzle", "dot connect", "dot", "dots" -> "🔴 ONE LINE CONNECT • Path Clear!"
-        "tic tac toe strategy", "tic tac toe", "tictactoe" -> "⭕❌ TIC TAC TOE • AI & 2-Player"
-        "aim focus target", "focus" -> "🎯 AIM FOCUS • 100% Target Aim"
-        "grid memory match", "grid memory", "memory" -> "🧠 GRID MEMORY • Recall Matrix"
-        "logic shapes drill", "logic shapes", "reasoning" -> "🧩 SPATIAL LOGIC • Pattern Speed"
-        "speed math duel", "math duel" -> "🔢 SPEED MATH • Rapid Mental Calc"
-        "arithmetic drill", "mental math" -> "➕ ARITHMETIC DRILL • Quick Facts"
-        else -> "⚡ ULTIMATE BRAIN CHALLENGE"
+    val cardBgColor = when (title.lowercase()) {
+        "reaction", "focus", "red dot target" -> Color(0xFF281C20)
+        "memory", "reasoning", "grid memory match" -> Color(0xFF221A2C)
+        "math duel", "speed math duel", "bottle catch" -> Color(0xFF1E281B)
+        else -> Color(0xFF1B242D)
     }
 
     Card(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .border(1.dp, themeColor.copy(alpha = 0.5f), RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(22.dp))
+            .border(1.5.dp, themeColor.copy(alpha = 0.45f), RoundedCornerShape(22.dp))
+            .clickable { onPlayClick() }
             .testTag("category_game_poster_$title"),
-        colors = CardDefaults.cardColors(containerColor = CyberSurface)
+        colors = CardDefaults.cardColors(containerColor = cardBgColor)
     ) {
         Column(
             modifier = Modifier
@@ -2999,134 +3548,47 @@ fun CategoryGameCardItem(
                 .padding(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Graphic Box Preview (Top Position Thumbnail Banner)
+            // High Quality Vertical Game Poster Image Box
+            GamePosterGraphic(
+                title = previewGraphicTitle.ifEmpty { title },
+                themeColor = themeColor,
+                icon = icon
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Fully Rounded Pill Action Button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(105.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                CyberSurfaceVariant,
-                                Color.Black
-                            )
-                        )
-                    )
-                    .border(
-                        1.dp,
-                        Brush.linearGradient(
-                            colors = listOf(
-                                CyberCardBorder,
-                                themeColor.copy(alpha = 0.5f)
-                            )
-                        ),
-                        RoundedCornerShape(10.dp)
-                    )
-                    .padding(2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                GamePreviewGraphic(
-                    title = previewGraphicTitle,
-                    themeColor = themeColor,
-                    icon = icon
-                )
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Game Title & Best Score Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = title,
-                    color = TextPrimary,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-
-                Text(
-                    text = "Best: $score",
-                    color = TextSecondary,
-                    fontSize = 9.5.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Clean Subtitle Text without Black Strip Box
-            Text(
-                text = youtubeTitle,
-                color = TextSecondary,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(vertical = 2.dp)
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Benefit Tag
-            Text(
-                text = "🎯 Skill: $benefit",
-                color = themeColor,
-                fontSize = 9.5.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Game Description
-            Text(
-                text = description,
-                color = TextSecondary,
-                fontSize = 9.5.sp,
-                textAlign = TextAlign.Center,
-                lineHeight = 12.sp,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.height(28.dp)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Action Button "PLAY GAME"
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(34.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(themeColor)
+                    .height(42.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFF7FAEC))
                     .clickable { onPlayClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = Color.Black,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "PLAY GAME",
-                        color = Color.Black,
-                        fontSize = 10.5.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
+                Text(
+                    text = "Play",
+                    color = Color(0xFF233019),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.3.sp
+                )
             }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Short Description Text below button (As explicitly requested by user)
+            Text(
+                text = description.ifEmpty { "Fun brain training puzzle game to boost cognitive skills." },
+                color = Color(0xFFCBD5E1),
+                fontSize = 10.5.sp,
+                lineHeight = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Start,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp)
+            )
         }
     }
 }
@@ -3140,7 +3602,8 @@ fun TrainYourBrainSection(
     onReactionClick: () -> Unit = {},
     onDotConnectClick: () -> Unit = {},
     onTicTacToeClick: () -> Unit = {},
-    onCategoryClick: (String) -> Unit = {}
+    onCategoryClick: (String) -> Unit = {},
+    onFallingBottlesClick: () -> Unit = {}
 ) {
     var isExpanded by remember { mutableStateOf(false) }
 
@@ -3246,7 +3709,16 @@ fun TrainYourBrainSection(
                         modifier = Modifier.weight(1f),
                         onClick = { onCategoryClick("MATH_CALCULATION") }
                     )
-                    Spacer(modifier = Modifier.weight(1f))
+                    CategoryCard(
+                        title = "Eye Fitness",
+                        score = "428",
+                        gameBadge = "👁️ EYE FOCUS",
+                        benefit = "Spatial Vision",
+                        icon = Icons.Default.RemoveRedEye,
+                        themeColor = Color(0xFF00E676),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onCategoryClick("EYE_FITNESS") }
+                    )
                 }
             }
         } else {
@@ -3321,6 +3793,30 @@ fun TrainYourBrainSection(
                         onClick = { onCategoryClick("MATH_CALCULATION") }
                     )
                 }
+                item {
+                    CategoryCard(
+                        title = "Eye Fitness",
+                        score = "428",
+                        gameBadge = "👁️ EYE FOCUS",
+                        benefit = "Spatial Vision",
+                        icon = Icons.Default.RemoveRedEye,
+                        themeColor = Color(0xFF00E676),
+                        modifier = Modifier.width(135.dp),
+                        onClick = { onCategoryClick("EYE_FITNESS") }
+                    )
+                }
+                item {
+                    CategoryCard(
+                        title = "Bottle Catch",
+                        score = "280 ms",
+                        gameBadge = "🍾 BOTTLE CATCH",
+                        benefit = "Sudden Reaction",
+                        icon = Icons.Default.FlashOn,
+                        themeColor = Color(0xFF4CAF50),
+                        modifier = Modifier.width(135.dp),
+                        onClick = onFallingBottlesClick
+                    )
+                }
             }
         }
     }
@@ -3336,7 +3832,8 @@ fun GamesInterfaceSection(
     onArrowClick: () -> Unit = {},
     onDotConnectClick: () -> Unit = {},
     onTicTacToeClick: () -> Unit = {},
-    onCategoryClick: (String) -> Unit = {}
+    onCategoryClick: (String) -> Unit = {},
+    onFallingBottlesClick: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // --- CATEGORY 1: REACTION & FOCUS ---
@@ -3361,17 +3858,6 @@ fun GamesInterfaceSection(
         ) {
             item {
                 GameBannerCard(
-                    title = "Reaction",
-                    score = "512",
-                    gameBadge = "⚡ SPEED TAP",
-                    benefit = "Fast Reflexes",
-                    icon = Icons.Default.FlashOn,
-                    themeColor = NeonYellow,
-                    onClick = onReactionClick
-                )
-            }
-            item {
-                GameBannerCard(
                     title = "Red Dot",
                     score = "165",
                     gameBadge = "🔴 RED DOT TARGET",
@@ -3394,13 +3880,13 @@ fun GamesInterfaceSection(
             }
             item {
                 GameBannerCard(
-                    title = "Focus",
-                    score = "604",
-                    gameBadge = "🎯 AIM TARGET",
-                    benefit = "Sharp Focus",
-                    icon = Icons.Default.TrackChanges,
-                    themeColor = NeonCyan,
-                    onClick = onReactionClick
+                    title = "Bottle Catch",
+                    score = "280 ms",
+                    gameBadge = "🍾 BOTTLE CATCH",
+                    benefit = "Sudden Reaction",
+                    icon = Icons.Default.FlashOn,
+                    themeColor = Color(0xFF4CAF50),
+                    onClick = onFallingBottlesClick
                 )
             }
         }
@@ -3798,7 +4284,7 @@ fun CategoryCard(
                 .padding(vertical = 8.dp, horizontal = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Game Example Preview Graphic Image Box
+            // Category Preview Graphic
             GamePreviewGraphic(
                 title = title,
                 themeColor = themeColor,
@@ -3839,7 +4325,7 @@ fun CategoryCard(
 
             Spacer(modifier = Modifier.height(6.dp))
 
-            // Vibrant Filled PLAY Button matching reference screenshot
+            // Vibrant Filled PLAY Button
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3882,7 +4368,7 @@ fun BottomNavBar(
         NavItem("HOME", Icons.Default.Home, selectedTab == "HOME"),
         NavItem("GAMES", Icons.Outlined.SportsEsports, selectedTab == "GAMES"),
         NavItem("BATTLE", Icons.Default.MilitaryTech, selectedTab == "BATTLE"),
-        NavItem("PROGRESS", Icons.Outlined.Leaderboard, selectedTab == "PROGRESS"),
+        NavItem("PROGRESS", Icons.Default.Star, selectedTab == "PROGRESS"),
         NavItem("PROFILE", Icons.Outlined.Person, selectedTab == "PROFILE")
     )
 
@@ -4452,301 +4938,235 @@ fun getGameIcon(gameName: String): String {
     }
 }
 
+data class MissionItem(
+    val id: String,
+    val category: String, // "DAILY" or "ACHIEVEMENT"
+    val title: String,
+    val description: String,
+    val icon: String,
+    val rewardCoins: Int,
+    val rewardTokens: Int,
+    val targetCount: Int,
+    var currentCount: Int,
+    var isClaimed: Boolean
+)
+
 @Composable
-fun ProgressTabScreen(
-    gameHistory: List<GameHistoryRecord>,
-    onPlayMathGame: () -> Unit
+fun MissionsOverviewCard(
+    missionsList: List<MissionItem>,
+    horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
+    onSeeAllClick: () -> Unit,
+    onOpenGame: (String) -> Unit
 ) {
-    // Selected record state for dynamic top banner display
-    var selectedRecordId by remember { mutableStateOf<String?>(null) }
-
-    // Fallback to latest game or first item if none selected
-    val activeRecord = gameHistory.find { it.id == selectedRecordId } ?: gameHistory.firstOrNull()
-
-    // Title Tag & Rating Color
-    val activeTitle = activeRecord?.titleTag ?: "BEGINNER"
-    val activeTagColor = getTitleTagColor(activeTitle)
-
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = horizontalPadding, vertical = 6.dp)
     ) {
-        // 1. Dynamic Mind Performance Banner Card (Updates when clicking history cards!)
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .border(
-                    width = 1.5.dp,
-                    brush = Brush.linearGradient(
-                        listOf(activeTagColor, NeonCyan, NeonPurpleBright)
-                    ),
-                    shape = RoundedCornerShape(20.dp)
+                    width = 1.dp,
+                    color = CyberCardBorder,
+                    shape = RoundedCornerShape(16.dp)
                 )
-                .testTag("progress_top_banner"),
+                .testTag("homescreen_missions_card"),
             colors = CardDefaults.cardColors(containerColor = CyberSurface)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(14.dp)
             ) {
-                // Header Row with Strict Weight to Prevent Overlap
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Left Column (Game / Banner Name) with weight(1f) to avoid overlapping right badge
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(36.dp)
-                                .clip(CircleShape)
-                                .background(activeTagColor.copy(alpha = 0.2f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(getGameIcon(activeRecord?.gameName ?: ""), fontSize = 18.sp)
-                        }
-                        Spacer(modifier = Modifier.width(10.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = activeRecord?.gameName ?: "MIND PERFORMANCE",
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 0.3.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = if (activeRecord != null) "🕒 ${activeRecord.timestamp} (Selected Match)" else "Your Overall Progress",
-                                color = TextSecondary,
-                                fontSize = 10.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Title Badge Pill on Right Corner (No Overlap Fix!)
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(activeTagColor.copy(alpha = 0.2f))
-                            .border(1.dp, activeTagColor, RoundedCornerShape(20.dp))
-                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                    ) {
-                        Text(
-                            text = "👑 $activeTitle",
-                            color = activeTagColor,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            maxLines = 1
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Stats Grid Row (4 Pills reflecting active match)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // Score
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(CyberSurfaceVariant)
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Score", color = TextMuted, fontSize = 9.sp)
-                            Text("${activeRecord?.score ?: 0}", color = NeonGold, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    // Stars
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(CyberSurfaceVariant)
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Stars", color = TextMuted, fontSize = 9.sp)
-                            Text("⭐ ${activeRecord?.stars ?: 5}/5", color = Color(0xFFFFD700), fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-
-                    // Accuracy / Result
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(CyberSurfaceVariant)
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Accuracy", color = TextMuted, fontSize = 9.sp)
-                            Text(
-                                text = activeRecord?.accuracyText?.take(6) ?: "100%",
-                                color = NeonCyan,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-
-                    // Max Streak
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(CyberSurfaceVariant)
-                            .padding(vertical = 8.dp, horizontal = 4.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Streak", color = TextMuted, fontSize = 9.sp)
-                            Text("🔥 ${activeRecord?.highestStreak ?: 0}", color = Color(0xFFFF7A00), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // XP Fill Progress Bar for Active Match
-                val displayScore = activeRecord?.score ?: 0
-                val currentLevel = (displayScore / 30) + 1
-                val xpProgress = ((displayScore % 150) / 150f).coerceIn(0.1f, 1f)
-                Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text("LEVEL $currentLevel • $activeTitle", color = NeonGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text("$displayScore / 150 XP", color = TextMuted, fontSize = 11.sp)
-                    }
-                    Spacer(modifier = Modifier.height(4.dp))
-                    LinearProgressIndicator(
-                        progress = { xpProgress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp)
-                            .clip(RoundedCornerShape(4.dp)),
-                        color = NeonGreen,
-                        trackColor = CyberSurfaceVariant
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Tap Hint Banner
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(CyberSurfaceVariant.copy(alpha = 0.6f))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "💡 Click on any game below to view its live statistics!",
-                        color = TextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(10.dp))
-
-                // Play Math Challenge Action Button
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(Color(0xFFFF7A00), NeonYellow)
-                            )
-                        )
-                        .clickable { onPlayMathGame() }
-                        .padding(vertical = 12.dp),
-                    contentAlignment = Alignment.Center
-                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("⚡", fontSize = 16.sp)
+                        Text("🎯", fontSize = 16.sp)
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "PLAY NEW GAME",
-                            color = Color.Black,
+                            text = "DAILY MISSIONS",
+                            color = TextPrimary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Black
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
                         )
+                    }
+
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(NeonCyan.copy(alpha = 0.15f))
+                            .clickable { onSeeAllClick() }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "SEE ALL",
+                            color = NeonCyan,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = "See All Missions",
+                            tint = NeonCyan,
+                            modifier = Modifier.size(11.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                val dailyMissionsToShow = missionsList.filter { it.category == "DAILY" }.take(3)
+
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    dailyMissionsToShow.forEach { mission ->
+                        val isCompleted = mission.currentCount >= mission.targetCount
+                        val progressFraction = (mission.currentCount.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(CyberSurfaceVariant),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(mission.icon, fontSize = 15.sp)
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = mission.title,
+                                        color = if (mission.isClaimed) TextMuted else TextPrimary,
+                                        fontSize = 11.5.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${mission.currentCount}/${mission.targetCount}",
+                                        color = if (isCompleted) NeonGreen else NeonCyan,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(3.dp))
+
+                                LinearProgressIndicator(
+                                    progress = { progressFraction },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(4.dp)
+                                        .clip(RoundedCornerShape(2.dp)),
+                                    color = if (mission.isClaimed) Color.Gray else if (isCompleted) NeonGreen else NeonCyan,
+                                    trackColor = CyberSurfaceVariant
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
 
-        // 2. Section Title
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+@Composable
+fun GameHistoryVerticalBox(record: GameHistoryRecord) {
+    val themeColor = when {
+        record.gameName.contains("Math") -> NeonGold
+        record.gameName.contains("Reaction") || record.gameName.contains("Red Dot") -> Color(0xFFFF5252)
+        record.gameName.contains("Arrow") -> NeonYellow
+        record.gameName.contains("Dot") || record.gameName.contains("Color Flow") -> NeonPurpleBright
+        record.gameName.contains("Tic") -> NeonCyan
+        record.gameName.contains("Memory") -> NeonGreen
+        else -> NeonBlue
+    }
+
+    val icon = when {
+        record.gameName.contains("Math") -> "🔢"
+        record.gameName.contains("Reaction") || record.gameName.contains("Red Dot") -> "🔴"
+        record.gameName.contains("Arrow") -> "🏹"
+        record.gameName.contains("Dot") || record.gameName.contains("Color Flow") -> "🧩"
+        record.gameName.contains("Tic") -> "❌"
+        record.gameName.contains("Memory") -> "🧠"
+        else -> "🎮"
+    }
+
+    Box(
+        modifier = Modifier
+            .width(105.dp)
+            .height(145.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(CyberSurface)
+            .border(1.dp, themeColor.copy(alpha = 0.5f), RoundedCornerShape(18.dp))
+            .padding(10.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = "SAVED GAME HISTORY",
-                color = TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.5.sp
+                text = record.timestamp,
+                color = TextMuted,
+                fontSize = 8.5.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
 
-            Text(
-                text = "${gameHistory.size} Matches Saved",
-                color = NeonCyan,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        // 3. Saved History Banner Cards
-        if (gameHistory.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(32.dp),
-                contentAlignment = Alignment.Center
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "No games played yet.",
-                    color = TextMuted,
-                    fontSize = 14.sp
+                    text = icon,
+                    fontSize = 24.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = record.gameName,
+                    color = TextPrimary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-        } else {
-            gameHistory.forEach { record ->
-                val isSelected = (record.id == activeRecord?.id)
-                GameHistoryBannerCard(
-                    record = record,
-                    isSelected = isSelected,
-                    onSelect = { selectedRecordId = record.id }
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(themeColor.copy(alpha = 0.15f))
+                    .padding(horizontal = 6.dp, vertical = 3.dp)
+            ) {
+                Text(
+                    text = if (record.score > 0) "+${record.score} XP" else record.titleTag,
+                    color = themeColor,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    maxLines = 1
                 )
             }
         }
@@ -4754,195 +5174,367 @@ fun ProgressTabScreen(
 }
 
 @Composable
-fun GameHistoryBannerCard(
-    record: GameHistoryRecord,
-    isSelected: Boolean = false,
-    onSelect: () -> Unit = {}
+fun MissionsTabScreen(
+    userCoins: Int,
+    userTokens: Int,
+    missionsList: androidx.compose.runtime.snapshots.SnapshotStateList<MissionItem>,
+    gameHistory: List<GameHistoryRecord>,
+    onRewardClaimed: (coins: Int, tokens: Int) -> Unit,
+    onOpenGame: (String) -> Unit
 ) {
-    val tagColor = getTitleTagColor(record.titleTag)
+    val context = LocalContext.current
+    var selectedCategory by remember { mutableStateOf("ALL") }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .clickable { onSelect() }
-            .border(
-                width = if (isSelected) 2.dp else 1.2.dp,
-                brush = Brush.horizontalGradient(
-                    if (isSelected) listOf(NeonCyan, NeonYellow)
-                    else listOf(tagColor.copy(alpha = 0.8f), CyberCardBorder, tagColor.copy(alpha = 0.4f))
-                ),
-                shape = RoundedCornerShape(16.dp)
-            )
-            .testTag("game_history_card_${record.id}"),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) CyberSurfaceVariant else CyberSurface
-        )
+    val filteredMissions = when (selectedCategory) {
+        "DAILY" -> missionsList.filter { it.category == "DAILY" }
+        "ACHIEVEMENT" -> missionsList.filter { it.category == "ACHIEVEMENT" }
+        else -> missionsList
+    }
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp)),
+            colors = CardDefaults.cardColors(containerColor = CyberSurface)
         ) {
-            // Header Row: Game Name, Selected Checkmark & Title Tag Badge
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(NeonGold.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("🎯", fontSize = 20.sp)
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text("PROGRESS & MISSIONS", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                            Text("Complete tasks & earn Coins & Power Tokens!", color = TextSecondary, fontSize = 11.sp)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (isSelected) NeonCyan.copy(alpha = 0.25f)
-                                else Color(0xFFFF7A00).copy(alpha = 0.18f)
-                            ),
-                        contentAlignment = Alignment.Center
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, NeonGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(10.dp)
                     ) {
-                        Text(getGameIcon(record.gameName), fontSize = 16.sp)
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = record.gameName,
-                                color = TextPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f, fill = false)
-                            )
-                            if (isSelected) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(NeonCyan)
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "✓ VIEWING",
-                                        color = Color.Black,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                }
+                            Text("🪙", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("YOUR COINS", color = TextMuted, fontSize = 9.sp)
+                                Text("$userCoins", color = NeonGold, fontSize = 15.sp, fontWeight = FontWeight.Black)
                             }
                         }
-                        Text(
-                            text = "🕒 ${record.timestamp}",
-                            color = TextMuted,
-                            fontSize = 10.sp
-                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, NeonYellow.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
+                            .padding(10.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("⚡", fontSize = 18.sp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text("POWER TOKENS", color = TextMuted, fontSize = 9.sp)
+                                Text("$userTokens/20", color = NeonYellow, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.width(6.dp))
-
-                // Title Tag Badge
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(tagColor.copy(alpha = 0.2f))
-                        .border(1.dp, tagColor, RoundedCornerShape(12.dp))
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
-                    Text(
-                        text = record.titleTag,
-                        color = tagColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp,
-                        maxLines = 1
-                    )
-                }
             }
+        }
 
-            Spacer(modifier = Modifier.height(10.dp))
-            HorizontalDivider(color = CyberCardBorder.copy(alpha = 0.6f))
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Stars Row & Score Stats
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Stars Display (5 stars)
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
-                    for (i in 1..5) {
-                        Text(
-                            text = if (i <= record.stars) "⭐" else "☆",
-                            fontSize = 16.sp,
-                            color = if (i <= record.stars) NeonGold else TextMuted
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "(${record.stars}/5)",
-                        color = TextSecondary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("ALL", "DAILY", "ACHIEVEMENT").forEach { cat ->
+                val isSel = (selectedCategory == cat)
+                val labelText = when (cat) {
+                    "DAILY" -> "📅 DAILY"
+                    "ACHIEVEMENT" -> "🏆 ACHIEVEMENTS"
+                    else -> "🌟 ALL MISSIONS"
                 }
-
-                // Score Badge
-                Text(
-                    text = "${record.score} Points",
-                    color = NeonCyan,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Sub Stats Pill Row (Accuracy + Streak)
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(CyberSurfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (isSel) NeonGreen else CyberSurfaceVariant)
+                        .clickable { selectedCategory = cat }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "🎯 Accuracy: ${record.accuracyText}",
-                        color = TextPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(CyberSurfaceVariant)
-                        .padding(horizontal = 8.dp, vertical = 5.dp)
-                ) {
-                    Text(
-                        text = "🔥 Streak: ${record.highestStreak}",
-                        color = Color(0xFFFF7A00),
+                        text = labelText,
+                        color = if (isSel) Color.Black else TextSecondary,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            filteredMissions.forEach { mission ->
+                val progressFraction = (mission.currentCount.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
+                val isCompleted = mission.currentCount >= mission.targetCount
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(
+                            1.dp,
+                            if (mission.isClaimed) CyberCardBorder else if (isCompleted) NeonGreen else CyberCardBorder,
+                            RoundedCornerShape(16.dp)
+                        ),
+                    colors = CardDefaults.cardColors(
+                        containerColor = if (mission.isClaimed) CyberSurfaceVariant.copy(alpha = 0.5f) else CyberSurface
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (mission.isClaimed) Color.Gray.copy(alpha = 0.2f)
+                                            else NeonCyan.copy(alpha = 0.2f)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(mission.icon, fontSize = 18.sp)
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = mission.title,
+                                        color = if (mission.isClaimed) TextMuted else TextPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = mission.description,
+                                        color = TextSecondary,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (mission.rewardCoins > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(NeonGold.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                                    ) {
+                                        Text("🪙 +${mission.rewardCoins}", color = NeonGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                if (mission.rewardTokens > 0) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(NeonYellow.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                                    ) {
+                                        Text("⚡ +${mission.rewardTokens}", color = NeonYellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (mission.isClaimed) "CLAIMED" else "PROGRESS",
+                                        color = TextMuted,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        text = "${mission.currentCount}/${mission.targetCount}",
+                                        color = if (isCompleted) NeonGreen else NeonCyan,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                LinearProgressIndicator(
+                                    progress = { progressFraction },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = if (mission.isClaimed) Color.Gray else if (isCompleted) NeonGreen else NeonCyan,
+                                    trackColor = CyberSurfaceVariant
+                                )
+                            }
+
+                            if (mission.isClaimed) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(Color.Gray.copy(alpha = 0.2f))
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("✓ CLAIMED", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            } else if (isCompleted) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(
+                                            Brush.horizontalGradient(listOf(NeonYellow, NeonGreen))
+                                        )
+                                        .clickable {
+                                            mission.isClaimed = true
+                                            onRewardClaimed(mission.rewardCoins, mission.rewardTokens)
+                                            Toast.makeText(
+                                                context,
+                                                "🎁 Reward Claimed! +${mission.rewardCoins} Coins 🪙 ${if (mission.rewardTokens > 0) "+${mission.rewardTokens} Tokens ⚡" else ""}",
+                                                Toast.LENGTH_LONG
+                                            ).show()
+                                        }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                                ) {
+                                    Text("CLAIM REWARD 🎁", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                }
+                            } else {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(CyberSurfaceVariant)
+                                        .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                        .clickable { onOpenGame(mission.title) }
+                                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
+                                    Text("PLAY NOW ▶", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Recent Game History Section (Vertical long, curved boxes)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp)),
+            colors = CardDefaults.cardColors(containerColor = CyberSurface)
+        ) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("🎮", fontSize = 16.sp)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "RECENT PLAY HISTORY",
+                            color = NeonGreen,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    Text(
+                        text = "${gameHistory.size} Records",
+                        color = TextMuted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (gameHistory.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 20.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "No games played yet. Start playing to see your history!",
+                            color = TextMuted,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        gameHistory.forEach { record ->
+                            GameHistoryVerticalBox(record)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
+
+
 
 // Data models for Battle Arena
 data class BattlePlayerData(
@@ -5063,7 +5655,10 @@ fun generateBattleQuestionData(gameId: String): BattleQuestionData {
 @Composable
 fun BattleTabScreen(
     onSaveBattleHistory: (GameHistoryRecord) -> Unit,
-    onTryStartGame: (((() -> Unit)) -> Unit)? = null
+    onTryStartGame: (((() -> Unit)) -> Unit)? = null,
+    userCoins: Int = 1000,
+    onCoinsChange: (Int) -> Unit = {},
+    onOpenCoinsShop: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -5148,10 +5743,18 @@ fun BattleTabScreen(
     }
 
     val startNewTournament = {
-        if (onTryStartGame != null && !isBattleActive) {
-            onTryStartGame(launchBattleMatch)
+        val entryFee = 100
+        if (userCoins < entryFee) {
+            Toast.makeText(context, "🪙 Entry Fee: 100 Coins required! You have $userCoins Coins.", Toast.LENGTH_LONG).show()
+            onOpenCoinsShop()
         } else {
-            launchBattleMatch()
+            onCoinsChange(userCoins - entryFee)
+            Toast.makeText(context, "⚔️ Tournament Started! 100 Coins Entry Fee deducted.", Toast.LENGTH_SHORT).show()
+            if (onTryStartGame != null && !isBattleActive) {
+                onTryStartGame(launchBattleMatch)
+            } else {
+                launchBattleMatch()
+            }
         }
     }
 
@@ -5359,108 +5962,27 @@ fun BattleTabScreen(
                         }
                     }
 
-                    HorizontalDivider(color = CyberCardBorder)
-
-                    // SELECT GAMES LIST
-                    Text(
-                        text = "SELECT TOURNAMENT GAMES",
-                        color = NeonGold,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-
-                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        gameOptions.forEachIndexed { gIdx, gOpt ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .background(CyberSurfaceVariant)
-                                    .border(
-                                        1.dp,
-                                        if (gOpt.isSelected) NeonCyan else CyberCardBorder,
-                                        RoundedCornerShape(10.dp)
-                                    )
-                                    .clickable {
-                                        val countSelected = gameOptions.count { it.isSelected }
-                                        if (gOpt.isSelected && countSelected <= 1) {
-                                            Toast.makeText(context, "At least 1 game must be selected!", Toast.LENGTH_SHORT).show()
-                                        } else {
-                                            gameOptions[gIdx] = gOpt.copy(isSelected = !gOpt.isSelected)
-                                        }
-                                    }
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(gOpt.icon, fontSize = 18.sp)
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = gOpt.name,
-                                        color = TextPrimary,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(if (gOpt.isSelected) NeonCyan else Color.Transparent)
-                                        .border(1.dp, if (gOpt.isSelected) NeonCyan else TextMuted, RoundedCornerShape(4.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (gOpt.isSelected) {
-                                        Text("✓", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // GAME PLAY MODE (MIXED vs SEPARATE)
-                    Text(
-                        text = "TOURNAMENT GAME MODE",
-                        color = NeonYellow,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.5.sp
-                    )
-
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, NeonGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        listOf(
-                            "MIXED" to "🔀 MIXED MODE",
-                            "SEPARATE" to "📋 SEPARATE ROUNDS"
-                        ).forEach { (modeKey, modeTitle) ->
-                            val isSel = selectedBattleMode == modeKey
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(CyberSurfaceVariant)
-                                    .border(1.dp, if (isSel) NeonCyan else CyberCardBorder, RoundedCornerShape(8.dp))
-                                    .clickable { selectedBattleMode = modeKey }
-                                    .padding(vertical = 8.dp, horizontal = 6.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = modeTitle,
-                                    color = if (isSel) NeonGreen else TextSecondary,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("🪙", fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("ENTRY FEE:", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("100 COINS", color = NeonGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
+                        Text("WINNER PRIZE: 🪙 500 COINS", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
 
                     // START TOURNAMENT BUTTON
                     Box(
@@ -5569,56 +6091,22 @@ fun BattleTabScreen(
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Save History Button
-                    if (!isHistorySaved) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(NeonCyan)
-                                .clickable {
-                                    isHistorySaved = true
-                                    val topScore = winner?.score ?: 0
-                                    val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
-                                    val summaryStr = sortedPlayers.joinToString(", ") { "${it.name}: ${it.score}pts" }
-                                    val record = GameHistoryRecord(
-                                        gameName = "Multiplayer Battle (${players.size} Players)",
-                                        score = topScore,
-                                        stars = 5,
-                                        titleTag = "ARENA KING",
-                                        accuracyText = summaryStr,
-                                        highestStreak = topScore / 10,
-                                        timestamp = "Today, $nowFormatted"
-                                    )
-                                    onSaveBattleHistory(record)
-                                    Toast.makeText(context, "Battle result saved to Progress!", Toast.LENGTH_SHORT).show()
-                                }
-                                .padding(vertical = 12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "💾 SAVE BATTLE RECORD TO PROGRESS",
-                                color = Color.Black,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Black
-                            )
-                        }
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(NeonGreen.copy(alpha = 0.2f))
-                                .border(1.dp, NeonGreen, RoundedCornerShape(12.dp))
-                                .padding(vertical = 10.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "✓ RESULT SAVED IN PROGRESS TAB",
-                                color = NeonGreen,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
+                    // Battle Completed Winner Announcement
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(NeonGold.copy(alpha = 0.15f))
+                            .border(1.dp, NeonGold, RoundedCornerShape(12.dp))
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "👑 CHAMPION: ${winner?.name ?: "Player 1"} (+500 COINS PRIZE!)",
+                            color = NeonGold,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Black
+                        )
                     }
 
                     // Rematch / Exit Buttons
@@ -5988,6 +6476,202 @@ fun generateRandomMathQuestion(): MathQuestion {
         correctAnswer = answer,
         options = optionsSet.toList().shuffled()
     )
+}
+
+data class GamePreStartData(
+    val title: String,
+    val badge: String,
+    val description: String,
+    val benefit: String,
+    val themeColor: Color,
+    val icon: ImageVector? = null,
+    val emojiIcon: String? = null,
+    val onLaunchGame: () -> Unit
+)
+
+@Composable
+fun GamePreStartDialog(
+    data: GamePreStartData,
+    onDismiss: () -> Unit,
+    onStartClick: () -> Unit
+) {
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.75f))
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                ) { onDismiss() },
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.88f)
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                    ) { /* prevent click through */ },
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF18181B)),
+                border = BorderStroke(1.5.dp, data.themeColor.copy(alpha = 0.8f))
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Close button top right
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF27272A))
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Hero Icon Box with Theme Glow
+                    Box(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .clip(CircleShape)
+                            .background(data.themeColor.copy(alpha = 0.15f))
+                            .border(2.dp, data.themeColor, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (data.icon != null) {
+                            Icon(
+                                imageVector = data.icon,
+                                contentDescription = data.title,
+                                tint = data.themeColor,
+                                modifier = Modifier.size(38.dp)
+                            )
+                        } else if (data.emojiIcon != null) {
+                            Text(text = data.emojiIcon, fontSize = 38.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Game Title
+                    Text(
+                        text = data.title,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // Badge Pill matching poster theme color
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(data.themeColor.copy(alpha = 0.2f))
+                            .border(1.dp, data.themeColor, RoundedCornerShape(8.dp))
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = data.badge,
+                            color = data.themeColor,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Benefit & Description
+                    Text(
+                        text = "Benefit: ${data.benefit}",
+                        color = Color(0xFFE4E4E7),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = data.description,
+                        color = Color(0xFFA1A1AA),
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 16.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // START Button in poster theme color with Token cost badge on the right
+                    val isLightColor = data.themeColor == NeonYellow || data.themeColor == NeonCyan || data.themeColor == Color(0xFF4CAF50)
+                    val contentColor = if (isLightColor) Color.Black else Color.White
+
+                    Button(
+                        onClick = onStartClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = data.themeColor,
+                            contentColor = contentColor
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Spacer(modifier = Modifier.width(36.dp))
+                            Text(
+                                text = "START",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            // Right side token icon + 1 cost
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(contentColor.copy(alpha = 0.2f))
+                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "⚡",
+                                        fontSize = 13.sp
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = "1",
+                                        color = contentColor,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 @Composable
@@ -7127,6 +7811,80 @@ fun MemoryGameDialog(
 }
 
 @Composable
+fun UprightBottleGraphic(
+    modifier: Modifier = Modifier,
+    isFalling: Boolean = false,
+    isSmashed: Boolean = false,
+    isCaught: Boolean = false
+) {
+    if (isSmashed) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text("💥", fontSize = 36.sp)
+        }
+    } else if (isCaught) {
+        Box(modifier = modifier, contentAlignment = Alignment.Center) {
+            Text("✨", fontSize = 28.sp)
+        }
+    } else {
+        Canvas(modifier = modifier) {
+            val w = size.width
+            val h = size.height
+
+            val glassColor = if (isFalling) Color(0xFF22C55E) else Color(0xFF16A34A)
+            val capColor = Color(0xFFF59E0B)
+            val labelColor = Color(0xFFF8FAFC)
+
+            // Cap at top
+            drawRoundRect(
+                color = capColor,
+                topLeft = Offset(w * 0.38f, h * 0.02f),
+                size = androidx.compose.ui.geometry.Size(w * 0.24f, h * 0.08f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.dp.toPx(), 2.dp.toPx())
+            )
+
+            // Neck
+            drawRoundRect(
+                color = glassColor,
+                topLeft = Offset(w * 0.40f, h * 0.10f),
+                size = androidx.compose.ui.geometry.Size(w * 0.20f, h * 0.28f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3.dp.toPx(), 3.dp.toPx())
+            )
+
+            // Body
+            drawRoundRect(
+                color = glassColor,
+                topLeft = Offset(w * 0.22f, h * 0.35f),
+                size = androidx.compose.ui.geometry.Size(w * 0.56f, h * 0.62f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8.dp.toPx(), 8.dp.toPx())
+            )
+
+            // Label (Clean, NO text or numbers written on it)
+            drawRoundRect(
+                color = labelColor,
+                topLeft = Offset(w * 0.26f, h * 0.52f),
+                size = androidx.compose.ui.geometry.Size(w * 0.48f, h * 0.22f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx(), 4.dp.toPx())
+            )
+
+            // Gold Stripe on Label
+            drawRect(
+                color = Color(0xFFEAB308),
+                topLeft = Offset(w * 0.26f, h * 0.60f),
+                size = androidx.compose.ui.geometry.Size(w * 0.48f, h * 0.04f)
+            )
+
+            // Glass Reflection Highlight
+            drawLine(
+                color = Color.White.copy(alpha = 0.4f),
+                start = Offset(w * 0.28f, h * 0.38f),
+                end = Offset(w * 0.28f, h * 0.90f),
+                strokeWidth = 2.dp.toPx()
+            )
+        }
+    }
+}
+
+@Composable
 fun ReactionGameDialog(
     onDismiss: () -> Unit,
     onGameFinished: (GameHistoryRecord) -> Unit = {},
@@ -7139,8 +7897,8 @@ fun ReactionGameDialog(
         }
     }
 
-    var selectedSubGame by remember { mutableStateOf(initialSubGame) } // "SPEED_REFLEX" or "ARROW_CLICK"
-    var gameState by remember { mutableStateOf(if (initialSubGame == "ARROW_CLICK") "ARROW_CLICK_PLAY" else "READY") } // Direct game start without choose interface
+    var selectedSubGame by remember { mutableStateOf(initialSubGame) } // "SPEED_REFLEX", "ARROW_CLICK", or "FALLING_BOTTLES"
+    var gameState by remember { mutableStateOf(if (initialSubGame == "ARROW_CLICK") "ARROW_CLICK_PLAY" else if (initialSubGame == "FALLING_BOTTLES") "FALLING_BOTTLES_PLAY" else "READY") } // Direct game start without choose interface
     var round by remember { mutableStateOf(1) }
     val maxRounds = 3
     val reactionTimes = remember { mutableStateListOf<Long>() }
@@ -7156,6 +7914,63 @@ fun ReactionGameDialog(
     var arrowElapsedMillis by remember { mutableStateOf(0L) }
     var arrowLastTime by remember { mutableStateOf(0L) }
     var isShowingFeedback by remember { mutableStateOf(false) }
+    var showArrowClickExitPopup by remember { mutableStateOf(false) }
+
+    // Falling Bottles game state variables
+    val scope = rememberCoroutineScope()
+    var bottleGamePhase by remember { mutableStateOf("WAITING") } // "WAITING", "FALLING", "FEEDBACK"
+    var activeFallingIndex by remember { mutableStateOf(-1) }
+    var bottleTargetSpawnTime by remember { mutableStateOf(0L) }
+    var bottleTimerElapsed by remember { mutableStateOf(0L) }
+    var bottleLevel by remember { mutableStateOf(1) }
+    var showBottleExitPopup by remember { mutableStateOf(false) }
+
+    val bottleInitPlay = {
+        bottleGamePhase = "WAITING"
+        activeFallingIndex = -1
+        bottleTargetSpawnTime = 0L
+        bottleTimerElapsed = 0L
+    }
+
+    // Dynamic fall duration: starts at 5000ms (5.0s). Every 10 levels, decreases by 500ms (0.5s), minimum 1000ms (1.0s).
+    val currentFallDuration = (5000L - (((bottleLevel - 1) / 10) * 500L)).coerceAtLeast(1000L)
+
+    // Coroutine to handle bottle falling timer tick
+    LaunchedEffect(gameState, bottleGamePhase, bottleLevel) {
+        if (gameState == "FALLING_BOTTLES_PLAY" && bottleGamePhase == "FALLING") {
+            val start = System.currentTimeMillis()
+            while (gameState == "FALLING_BOTTLES_PLAY" && bottleGamePhase == "FALLING") {
+                bottleTimerElapsed = System.currentTimeMillis() - start
+                if (bottleTimerElapsed >= currentFallDuration) {
+                    reactionTimes.add(currentFallDuration)
+                    foulCount++
+                    bottleGamePhase = "FEEDBACK"
+                    delay(300L)
+                    if (round >= maxRounds) {
+                        gameState = "GAMEOVER"
+                    } else {
+                        round++
+                        bottleInitPlay()
+                    }
+                }
+                delay(16L)
+            }
+        }
+    }
+
+    // Coroutine to handle WAITING phase delay
+    LaunchedEffect(gameState, round, bottleGamePhase) {
+        if (gameState == "FALLING_BOTTLES_PLAY" && bottleGamePhase == "WAITING") {
+            val delayTime = (300..700).random().toLong()
+            delay(delayTime)
+            if (gameState == "FALLING_BOTTLES_PLAY" && bottleGamePhase == "WAITING") {
+                activeFallingIndex = (0..4).random()
+                bottleTargetSpawnTime = System.currentTimeMillis()
+                bottleTimerElapsed = 0L
+                bottleGamePhase = "FALLING"
+            }
+        }
+    }
 
     // Feedback timer for Arrow Click game (0.5s auto-reset to active gameplay)
     LaunchedEffect(isShowingFeedback) {
@@ -7167,12 +7982,12 @@ fun ReactionGameDialog(
     }
 
     // Ticking timer for Arrow Click game
-    LaunchedEffect(gameState, isShowingFeedback, arrowAngle) {
-        if (gameState == "ARROW_CLICK_PLAY" && !isShowingFeedback) {
-            val start = System.currentTimeMillis()
+    LaunchedEffect(gameState, isShowingFeedback, arrowAngle, showArrowClickExitPopup) {
+        if (gameState == "ARROW_CLICK_PLAY" && !isShowingFeedback && !showArrowClickExitPopup) {
+            val start = System.currentTimeMillis() - arrowElapsedMillis
             arrowTimerStart = start
-            while (gameState == "ARROW_CLICK_PLAY" && !isShowingFeedback) {
-                arrowElapsedMillis = System.currentTimeMillis() - start
+            while (gameState == "ARROW_CLICK_PLAY" && !isShowingFeedback && !showArrowClickExitPopup) {
+                arrowElapsedMillis = System.currentTimeMillis() - arrowTimerStart
                 delay(10L) // high-precision tick (10ms)
             }
         }
@@ -7186,6 +8001,7 @@ fun ReactionGameDialog(
     var targetYRatio by remember { mutableStateOf(0.5f) }
     var targetSpawnTime by remember { mutableStateOf(0L) }
     var hitCount by remember { mutableStateOf(0) }
+    var isTargetHitSuccess by remember { mutableStateOf(false) }
 
     // Helper function for random float generation
     fun getRandomFloat(min: Float, max: Float): Float {
@@ -7236,7 +8052,7 @@ fun ReactionGameDialog(
                 .fillMaxSize()
                 .background(if (gameState == "ARROW_CLICK_PLAY") Color.White else Color(0xFF121212))
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY") 0.dp else 24.dp)
+                .padding(if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY" || gameState == "FALLING_BOTTLES_PLAY") 0.dp else 24.dp)
         ) {
             // Header for info / exit (unless we are in TAP or READY mode which might occupy the full screen to prevent accidental clicks)
             if (gameState == "START" || gameState == "RESULT" || gameState == "GAMEOVER") {
@@ -7292,7 +8108,7 @@ fun ReactionGameDialog(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(vertical = if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY") 0.dp else 60.dp),
+                    .padding(vertical = if (gameState == "ARROW_CLICK_PLAY" || gameState == "BURST_TARGET" || gameState == "READY" || gameState == "FALLING_BOTTLES_PLAY") 0.dp else 60.dp),
                 contentAlignment = Alignment.Center
             ) {
                 when (gameState) {
@@ -7308,7 +8124,7 @@ fun ReactionGameDialog(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(bottom = 20.dp)
+                                    .padding(bottom = 16.dp)
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(Color(0xFF1E1E1E))
                                     .padding(4.dp)
@@ -7323,9 +8139,9 @@ fun ReactionGameDialog(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
-                                        text = "Reflex Test",
+                                        text = "Red Dot Target",
                                         color = if (selectedSubGame == "SPEED_REFLEX") Color.Black else TextSecondary,
-                                        fontSize = 13.sp,
+                                        fontSize = 11.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
@@ -7339,24 +8155,41 @@ fun ReactionGameDialog(
                                         .padding(vertical = 10.dp),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    Text(
+                                        text = "Arrow Click",
+                                        color = if (selectedSubGame == "ARROW_CLICK") Color.Black else TextSecondary,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1.1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (selectedSubGame == "FALLING_BOTTLES") NeonYellow else Color.Transparent)
+                                        .clickable { selectedSubGame = "FALLING_BOTTLES" }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
-                                            text = "Arrow Click",
-                                            color = if (selectedSubGame == "ARROW_CLICK") Color.Black else TextSecondary,
-                                            fontSize = 13.sp,
+                                            text = "Bottle Catch",
+                                            color = if (selectedSubGame == "FALLING_BOTTLES") Color.Black else TextSecondary,
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold
                                         )
-                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Spacer(modifier = Modifier.width(3.dp))
                                         Box(
                                             modifier = Modifier
                                                 .clip(RoundedCornerShape(4.dp))
-                                                .background(if (selectedSubGame == "ARROW_CLICK") Color.Black else Color(0xFFFF5722))
+                                                .background(if (selectedSubGame == "FALLING_BOTTLES") Color.Black else Color(0xFF4CAF50))
                                                 .padding(horizontal = 4.dp, vertical = 2.dp)
                                         ) {
                                             Text(
                                                 text = "NEW",
-                                                color = if (selectedSubGame == "ARROW_CLICK") NeonYellow else Color.White,
-                                                fontSize = 8.sp,
+                                                color = if (selectedSubGame == "FALLING_BOTTLES") NeonYellow else Color.White,
+                                                fontSize = 7.sp,
                                                 fontWeight = FontWeight.Black
                                             )
                                         }
@@ -7369,29 +8202,51 @@ fun ReactionGameDialog(
                                 modifier = Modifier
                                     .size(100.dp)
                                     .clip(CircleShape)
-                                    .background((if (selectedSubGame == "SPEED_REFLEX") NeonYellow else NeonCyan).copy(alpha = 0.15f))
-                                    .border(2.dp, if (selectedSubGame == "SPEED_REFLEX") NeonYellow else NeonCyan, CircleShape),
+                                    .background((if (selectedSubGame == "SPEED_REFLEX") NeonYellow else if (selectedSubGame == "ARROW_CLICK") NeonCyan else Color(0xFF4CAF50)).copy(alpha = 0.15f))
+                                    .border(2.dp, if (selectedSubGame == "SPEED_REFLEX") NeonYellow else if (selectedSubGame == "ARROW_CLICK") NeonCyan else Color(0xFF4CAF50), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = if (selectedSubGame == "SPEED_REFLEX") Icons.Default.FlashOn else Icons.Default.TrackChanges,
-                                    contentDescription = "Reflex",
-                                    tint = if (selectedSubGame == "SPEED_REFLEX") NeonYellow else NeonCyan,
-                                    modifier = Modifier.size(54.dp)
-                                )
+                                if (selectedSubGame == "SPEED_REFLEX") {
+                                    Icon(
+                                        imageVector = Icons.Default.FlashOn,
+                                        contentDescription = "Reflex",
+                                        tint = NeonYellow,
+                                        modifier = Modifier.size(54.dp)
+                                    )
+                                } else if (selectedSubGame == "ARROW_CLICK") {
+                                    Icon(
+                                        imageVector = Icons.Default.TrackChanges,
+                                        contentDescription = "Arrow Click",
+                                        tint = NeonCyan,
+                                        modifier = Modifier.size(54.dp)
+                                    )
+                                } else {
+                                    Text(
+                                        text = "🍾",
+                                        fontSize = 48.sp
+                                    )
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(20.dp))
 
                             Text(
-                                text = if (selectedSubGame == "SPEED_REFLEX") "Speed Reflex Test" else "Arrow Click Test",
+                                text = when (selectedSubGame) {
+                                    "SPEED_REFLEX" -> "Speed Reflex Test"
+                                    "ARROW_CLICK" -> "Arrow Click Test"
+                                    else -> "Falling Bottle Catch"
+                                },
                                 color = TextPrimary,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Black
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = if (selectedSubGame == "SPEED_REFLEX") "Measure your reaction speed and train your reflexes to be lightning fast!" else "Tap the red target tip extending from the black curved arrow as fast as you can!",
+                                text = when (selectedSubGame) {
+                                    "SPEED_REFLEX" -> "Measure your reaction speed and train your reflexes to be lightning fast!"
+                                    "ARROW_CLICK" -> "Tap the red target tip extending from the black curved arrow as fast as you can!"
+                                    else -> "5 बोतलें लटकी हुई हैं। किसी भी समय एक बोतल अचानक नीचे गिरेगी! ज़मीन पर गिरने से पहले उसे तेज़ी से पकड़ें (Tap करें)!"
+                                },
                                 color = TextSecondary,
                                 fontSize = 13.sp,
                                 textAlign = TextAlign.Center,
@@ -7434,7 +8289,7 @@ fun ReactionGameDialog(
                                             fontSize = 13.sp
                                         )
                                     }
-                                } else {
+                                } else if (selectedSubGame == "ARROW_CLICK") {
                                     Row(verticalAlignment = Alignment.Top) {
                                         Text("🎯", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
                                         Text(
@@ -7459,6 +8314,31 @@ fun ReactionGameDialog(
                                             fontSize = 13.sp
                                         )
                                     }
+                                } else {
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Text("🎮", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
+                                        Text(
+                                            text = "1. START GAME पर टैप करें। ऊपर 5 बोतलें लटकी हुई दिखेंगी।",
+                                            color = TextSecondary,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Text("⏳", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
+                                        Text(
+                                            text = "2. ध्यान से देखें! अचानक एक बोतल नीचे गिरना शुरू होगी।",
+                                            color = TextSecondary,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Row(verticalAlignment = Alignment.Top) {
+                                        Text("💥", fontSize = 16.sp, modifier = Modifier.padding(end = 8.dp))
+                                        Text(
+                                            text = "3. गिरती हुई बोतल को ज़मीन पर टूटने से पहले तुरंत टैप करके कैच करें!",
+                                            color = TextSecondary,
+                                            fontSize = 13.sp
+                                        )
+                                    }
                                 }
                             }
 
@@ -7472,7 +8352,7 @@ fun ReactionGameDialog(
                                     .clip(RoundedCornerShape(16.dp))
                                     .background(
                                         Brush.horizontalGradient(
-                                            if (selectedSubGame == "SPEED_REFLEX") listOf(NeonYellow, Color(0xFFFF9100)) else listOf(NeonCyan, NeonBlue)
+                                            if (selectedSubGame == "SPEED_REFLEX") listOf(NeonYellow, Color(0xFFFF9100)) else if (selectedSubGame == "ARROW_CLICK") listOf(NeonCyan, NeonBlue) else listOf(Color(0xFF4CAF50), Color(0xFF2E7D32))
                                         )
                                     )
                                     .clickable {
@@ -7482,12 +8362,18 @@ fun ReactionGameDialog(
                                             reactionTimes.clear()
                                             gameState = "READY"
                                             aiMessage = "🤖 AI Reflection: Focus mode on! Stay ready for green screen."
-                                        } else {
+                                        } else if (selectedSubGame == "ARROW_CLICK") {
                                             arrowAngle = (0..359).random().toFloat()
                                             isShowingFeedback = false
                                             arrowTimerStart = System.currentTimeMillis()
                                             arrowElapsedMillis = 0L
                                             gameState = "ARROW_CLICK_PLAY"
+                                        } else {
+                                            round = 1
+                                            foulCount = 0
+                                            reactionTimes.clear()
+                                            bottleInitPlay()
+                                            gameState = "FALLING_BOTTLES_PLAY"
                                         }
                                     },
                                 contentAlignment = Alignment.Center
@@ -7575,8 +8461,9 @@ fun ReactionGameDialog(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .background(Color(0xFF090B10))
-                                .pointerInput(targetXRatio, targetYRatio, gameState) {
+                                .pointerInput(targetXRatio, targetYRatio, gameState, isTargetHitSuccess) {
                                     detectTapGestures { offset ->
+                                        if (isTargetHitSuccess) return@detectTapGestures
                                         val targetPxX = size.width * targetXRatio
                                         val targetPxY = size.height * targetYRatio
                                         val dx = offset.x - targetPxX
@@ -7589,10 +8476,15 @@ fun ReactionGameDialog(
                                             reactionTimes.add(reactionMs)
                                             hitCount++
 
-                                            // Infinite Mode: Always spawn next target
-                                            targetXRatio = getRandomFloat(0.18f, 0.82f)
-                                            targetYRatio = getRandomFloat(0.22f, 0.78f)
-                                            targetSpawnTime = System.currentTimeMillis()
+                                            scope.launch {
+                                                isTargetHitSuccess = true
+                                                delay(500L)
+                                                isTargetHitSuccess = false
+                                                // Always spawn next target
+                                                targetXRatio = getRandomFloat(0.18f, 0.82f)
+                                                targetYRatio = getRandomFloat(0.22f, 0.78f)
+                                                targetSpawnTime = System.currentTimeMillis()
+                                            }
                                         }
                                     }
                                 }
@@ -7612,25 +8504,25 @@ fun ReactionGameDialog(
                                     val radius = minRadius + (maxRadius - minRadius) * ringPhase
                                     val alphaVal = (1f - ringPhase).coerceIn(0f, 1f)
 
-                                    // Water ripple outer circle stroke
+                                    // Water ripple outer circle stroke (Green if hit success, Red otherwise)
                                     drawCircle(
-                                        color = Color(0xFFFF2A2A).copy(alpha = alphaVal * 0.85f),
+                                        color = if (isTargetHitSuccess) Color(0xFF4CAF50).copy(alpha = alphaVal * 0.85f) else Color(0xFFFF2A2A).copy(alpha = alphaVal * 0.85f),
                                         radius = radius,
                                         center = Offset(centerX, centerY),
                                         style = Stroke(width = (3.5.dp.toPx() * (1f - ringPhase * 0.5f)))
                                     )
                                 }
 
-                                // Soft Glowing Outer Red Aura
+                                // Soft Glowing Outer Aura (Green if hit success, Red otherwise)
                                 drawCircle(
-                                    color = Color(0xFFFF1744).copy(alpha = 0.20f),
+                                    color = if (isTargetHitSuccess) Color(0xFF4CAF50).copy(alpha = 0.20f) else Color(0xFFFF1744).copy(alpha = 0.20f),
                                     radius = 28.dp.toPx(),
                                     center = Offset(centerX, centerY)
                                 )
 
-                                // Vibrant Red Center Target Dot
+                                // Vibrant Center Target Dot (Green if hit success, Red otherwise)
                                 drawCircle(
-                                    color = Color(0xFFFF1744),
+                                    color = if (isTargetHitSuccess) Color(0xFF4CAF50) else Color(0xFFFF1744),
                                     radius = 21.dp.toPx(),
                                     center = Offset(centerX, centerY)
                                 )
@@ -7932,25 +8824,52 @@ fun ReactionGameDialog(
                         val bestTime = if (validTimes.isNotEmpty()) validTimes.minOrNull() ?: 0L else 0L
                         val avgTime = if (validTimes.isNotEmpty()) validTimes.average().toLong() else 0L
 
-                        val starsEarned = when {
-                            avgTime > 0 && avgTime < 240 -> 5
-                            avgTime > 0 && avgTime < 320 -> 4
-                            avgTime > 0 && avgTime < 450 -> 3
-                            else -> 2
+                        val starsEarned = if (selectedSubGame == "FALLING_BOTTLES") {
+                            when {
+                                avgTime > 0 && avgTime < 350 -> 5
+                                avgTime > 0 && avgTime < 500 -> 4
+                                avgTime > 0 && avgTime < 700 -> 3
+                                else -> 2
+                            }
+                        } else {
+                            when {
+                                avgTime > 0 && avgTime < 240 -> 5
+                                avgTime > 0 && avgTime < 320 -> 4
+                                avgTime > 0 && avgTime < 450 -> 3
+                                else -> 2
+                            }
                         }
 
-                        val xpEarned = when {
-                            bestTime > 0 && bestTime < 200 -> 150
-                            bestTime > 0 && bestTime < 280 -> 100
-                            bestTime > 0 && bestTime < 400 -> 75
-                            else -> 40
+                        val xpEarned = if (selectedSubGame == "FALLING_BOTTLES") {
+                            when {
+                                bestTime > 0 && bestTime < 300 -> 150
+                                bestTime > 0 && bestTime < 450 -> 100
+                                bestTime > 0 && bestTime < 650 -> 75
+                                else -> 40
+                            }
+                        } else {
+                            when {
+                                bestTime > 0 && bestTime < 200 -> 150
+                                bestTime > 0 && bestTime < 280 -> 100
+                                bestTime > 0 && bestTime < 400 -> 75
+                                else -> 40
+                            }
                         }
 
-                        val titleTag = when {
-                            bestTime > 0 && bestTime < 200 -> "GRANDMASTER"
-                            bestTime > 0 && bestTime < 280 -> "MASTER"
-                            bestTime > 0 && bestTime < 400 -> "EXPERT"
-                            else -> "ROOKIE"
+                        val titleTag = if (selectedSubGame == "FALLING_BOTTLES") {
+                            when {
+                                bestTime > 0 && bestTime < 300 -> "GRANDMASTER"
+                                bestTime > 0 && bestTime < 450 -> "MASTER"
+                                bestTime > 0 && bestTime < 650 -> "EXPERT"
+                                else -> "ROOKIE"
+                            }
+                        } else {
+                            when {
+                                bestTime > 0 && bestTime < 200 -> "GRANDMASTER"
+                                bestTime > 0 && bestTime < 280 -> "MASTER"
+                                bestTime > 0 && bestTime < 400 -> "EXPERT"
+                                else -> "ROOKIE"
+                            }
                         }
 
                         // Call save history record exactly once
@@ -7962,7 +8881,7 @@ fun ReactionGameDialog(
                                 val nowFormatted = sdf.format(now)
 
                                 val record = GameHistoryRecord(
-                                    gameName = "Reaction Speed Reflex",
+                                    gameName = if (selectedSubGame == "FALLING_BOTTLES") "Reaction: Falling Bottles" else if (selectedSubGame == "ARROW_CLICK") "Reaction: Arrow Click" else "Reaction Speed Reflex",
                                     score = if (bestTime > 0) bestTime.toInt() else 999,
                                     stars = starsEarned,
                                     titleTag = titleTag,
@@ -8082,6 +9001,9 @@ fun ReactionGameDialog(
                                             arrowTimerStart = System.currentTimeMillis()
                                             arrowElapsedMillis = 0L
                                             gameState = "ARROW_CLICK_PLAY"
+                                        } else if (selectedSubGame == "FALLING_BOTTLES") {
+                                            bottleInitPlay()
+                                            gameState = "FALLING_BOTTLES_PLAY"
                                         } else {
                                             gameState = "READY"
                                         }
@@ -8121,67 +9043,6 @@ fun ReactionGameDialog(
                                 .fillMaxSize()
                                 .background(Color.White)
                         ) {
-                            // Header showing the custom ticking timer at the top (Overlaid)
-                            val timerSecStr = String.format(java.util.Locale.US, "%.2f", arrowElapsedMillis / 1000.0)
-                            
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .align(Alignment.TopCenter)
-                                    .padding(horizontal = 20.dp, vertical = 24.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Exit Button to return to START screen
-                                IconButton(
-                                    onClick = { gameState = "START" },
-                                    modifier = Modifier
-                                        .size(44.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFEEEEEE))
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.ArrowBack,
-                                        contentDescription = "Back to Menu",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    Text(
-                                        text = "REACTION TIME",
-                                        color = Color(0xFF555555),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 1.sp
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "${timerSecStr}s",
-                                        color = Color.Black,
-                                        fontSize = 32.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                    Text(
-                                        text = "$arrowElapsedMillis ms",
-                                        color = Color(0xFF777777),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "TAP THE ARROW TIP!",
-                                        color = Color.Black,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                // Just a spacer placeholder to align correctly
-                                Spacer(modifier = Modifier.width(44.dp))
-                            }
-
                             if (isShowingFeedback) {
                                 // Feedback Screen shown in the center for 0.5s after tapping tip
                                 Column(
@@ -8310,6 +9171,308 @@ fun ReactionGameDialog(
                                         radius = 5f
                                     )
                                 }
+                            }
+
+                            // Header showing the custom ticking timer at the top (Overlaid)
+                            val timerSecStr = String.format(java.util.Locale.US, "%.2f", arrowElapsedMillis / 1000.0)
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(Alignment.TopCenter)
+                                    .padding(horizontal = 20.dp, vertical = 24.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Exit Button to open pause confirmation popup
+                                IconButton(
+                                    onClick = { showArrowClickExitPopup = true },
+                                    modifier = Modifier
+                                        .size(44.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFEEEEEE))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "Back to Menu",
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "REACTION TIME",
+                                        color = Color(0xFF555555),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 1.sp
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${timerSecStr}s",
+                                        color = Color.Black,
+                                        fontSize = 32.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    Text(
+                                        text = "$arrowElapsedMillis ms",
+                                        color = Color(0xFF777777),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "TAP THE ARROW TIP!",
+                                        color = Color.Black,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+
+                                // Just a spacer placeholder to align correctly
+                                Spacer(modifier = Modifier.width(44.dp))
+                            }
+
+                            if (showArrowClickExitPopup) {
+                                AlertDialog(
+                                    onDismissRequest = { showArrowClickExitPopup = false },
+                                    title = {
+                                        Text(
+                                            text = "Pause Game",
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                            fontSize = 18.sp
+                                        )
+                                    },
+                                    text = {
+                                        Text(
+                                            text = "Do you want to exit to the main menu or resume playing?",
+                                            color = Color(0xFFCCCCCC),
+                                            fontSize = 14.sp
+                                        )
+                                    },
+                                    containerColor = Color(0xFF1E1E1E),
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                showArrowClickExitPopup = false
+                                                gameState = "START"
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744))
+                                        ) {
+                                            Text("Exit", color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    dismissButton = {
+                                        Button(
+                                            onClick = { showArrowClickExitPopup = false },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155))
+                                        ) {
+                                            Text("Resume", color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                )
+                            }
+                        }
+                    }
+
+                    "FALLING_BOTTLES_PLAY" -> {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(
+                                            Color(0xFF0F172A),
+                                            Color(0xFF090D16),
+                                            Color(0xFF030712)
+                                        )
+                                    )
+                                )
+                        ) {
+                            // Bar/Pub Theme Canvas: Top shelf beam & hanging ropes
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val w = size.width
+                                val h = size.height
+
+                                // 1. Top Wooden/Polished Shelf Beam
+                                drawRect(
+                                    color = Color(0xFF3B2314),
+                                    size = androidx.compose.ui.geometry.Size(w, 24.dp.toPx()),
+                                    topLeft = Offset(0f, 65.dp.toPx())
+                                )
+                                drawRect(
+                                    color = Color(0xFFEAB308),
+                                    size = androidx.compose.ui.geometry.Size(w, 3.dp.toPx()),
+                                    topLeft = Offset(0f, 89.dp.toPx())
+                                )
+
+                                // 2. Bottom Bar Counter Line
+                                drawRect(
+                                    color = Color(0xFF1E1008),
+                                    size = androidx.compose.ui.geometry.Size(w, 60.dp.toPx()),
+                                    topLeft = Offset(0f, h - 60.dp.toPx())
+                                )
+                                drawRect(
+                                    color = Color(0xFFFFB703),
+                                    size = androidx.compose.ui.geometry.Size(w, 4.dp.toPx()),
+                                    topLeft = Offset(0f, h - 60.dp.toPx())
+                                )
+
+                                // 3. Ropes hanging down from top shelf for all 5 bottles
+                                for (i in 0 until 5) {
+                                    val startX = w * (i + 0.5f) / 5f
+                                    val startY = 89.dp.toPx()
+
+                                    val isFallingRope = (i == activeFallingIndex && (bottleGamePhase == "FALLING" || bottleGamePhase == "FEEDBACK"))
+                                    val ropeEndY = if (isFallingRope) startY + 25.dp.toPx() else 145.dp.toPx()
+
+                                    drawLine(
+                                        color = Color(0xFFD97706),
+                                        start = Offset(startX, startY),
+                                        end = Offset(startX, ropeEndY),
+                                        strokeWidth = 3.dp.toPx()
+                                    )
+                                }
+                            }
+
+                            // Render 5 bottle components
+                            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                                val screenWidth = maxWidth
+                                val screenHeight = maxHeight
+
+                                val bottleWidth = 56.dp
+                                val bottleHeight = 90.dp
+
+                                for (i in 0 until 5) {
+                                    val isFalling = (i == activeFallingIndex && bottleGamePhase == "FALLING")
+                                    val isCaught = (i == activeFallingIndex && bottleGamePhase == "FEEDBACK")
+
+                                    val startX = screenWidth * ((i + 0.5f) / 5f) - (bottleWidth / 2f)
+                                    val startY = if (isFalling) {
+                                        val progress = (bottleTimerElapsed.toFloat() / currentFallDuration.toFloat()).coerceIn(0f, 1f)
+                                        val travelDistance = screenHeight - 220.dp
+                                        145.dp + (travelDistance * progress)
+                                    } else if (isCaught) {
+                                        145.dp + 160.dp
+                                    } else {
+                                        145.dp
+                                    }
+
+                                    UprightBottleGraphic(
+                                        modifier = Modifier
+                                            .offset(x = startX, y = startY)
+                                            .size(width = bottleWidth, height = bottleHeight)
+                                            .clickable(
+                                                indication = null,
+                                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                                            ) {
+                                                if (isFalling) {
+                                                    val caughtTime = System.currentTimeMillis() - bottleTargetSpawnTime
+                                                    lastReactionTime = caughtTime
+                                                    reactionTimes.add(caughtTime)
+                                                    bottleLevel++
+                                                    bottleGamePhase = "FEEDBACK"
+                                                    scope.launch {
+                                                        delay(300L) // particle burst delay
+                                                        if (round >= maxRounds) {
+                                                            gameState = "GAMEOVER"
+                                                        } else {
+                                                            round++
+                                                            bottleInitPlay()
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                        isFalling = isFalling,
+                                        isSmashed = false,
+                                        isCaught = isCaught
+                                    )
+                                }
+                            }
+
+                            // Header overlaid at top
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color(0xFF0F172A).copy(alpha = 0.92f))
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .align(Alignment.TopCenter),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                IconButton(
+                                    onClick = { showBottleExitPopup = true },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF1E293B))
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ArrowBack,
+                                        contentDescription = "Back",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        text = "LEVEL $bottleLevel • ROUND $round/$maxRounds",
+                                        color = Color(0xFF94A3B8),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.8.sp
+                                    )
+                                    val remSec = ((currentFallDuration - bottleTimerElapsed).coerceAtLeast(0L) / 1000.0f)
+                                    Text(
+                                        text = if (bottleGamePhase == "FALLING") "⏱️ ${String.format(java.util.Locale.US, "%.1f", remSec)}s" else "READY",
+                                        color = if (bottleGamePhase == "FALLING") Color(0xFFFFEB3B) else Color.White,
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF1E293B))
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                                ) {
+                                    val avg = if (reactionTimes.isNotEmpty()) reactionTimes.average().toInt() else 0
+                                    Text(
+                                        text = "AVG: ${avg}ms",
+                                        color = Color.White,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+
+                            if (showBottleExitPopup) {
+                                AlertDialog(
+                                    onDismissRequest = { showBottleExitPopup = false },
+                                    title = { Text("Pause Game", color = Color.White, fontWeight = FontWeight.Bold) },
+                                    text = { Text("Do you want to exit or resume playing?", color = Color(0xFFCBD5E1)) },
+                                    confirmButton = {
+                                        Button(
+                                            onClick = {
+                                                showBottleExitPopup = false
+                                                onDismiss()
+                                            },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744))
+                                        ) {
+                                            Text("Exit Game", color = Color.White, fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showBottleExitPopup = false }) {
+                                            Text("Resume", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+                                        }
+                                    },
+                                    containerColor = Color(0xFF1E293B)
+                                )
                             }
                         }
                     }
@@ -9179,6 +10342,130 @@ object OneLinePuzzleGenerator {
     }
 }
 
+data class ColorFlowPair(
+    val colorId: Int,
+    val color: Color,
+    val name: String,
+    val dotA: Pair<Int, Int>,
+    val dotB: Pair<Int, Int>
+)
+
+data class ColorFlowLevel(
+    val levelNumber: Int,
+    val gridSize: Int,
+    val pairs: List<ColorFlowPair>
+)
+
+object ColorFlowLevelGenerator {
+    val COLOR_LIST = listOf(
+        Color(0xFFFF1744), // Red
+        Color(0xFF2979FF), // Blue
+        Color(0xFF00E676), // Green
+        Color(0xFFFFD600), // Yellow
+        Color(0xFFFF9100), // Orange
+        Color(0xFF00E5FF), // Cyan
+        Color(0xFFA855F7), // Purple
+        Color(0xFFFF4081)  // Pink
+    )
+
+    fun getLevel(lvl: Int): ColorFlowLevel {
+        val gridSize = when {
+            lvl <= 3 -> 5
+            lvl <= 7 -> 6
+            else -> 7
+        }
+
+        val levelPairs = when (lvl) {
+            1 -> listOf(
+                ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 4 to 0),
+                ColorFlowPair(2, COLOR_LIST[1], "Blue", 0 to 1, 0 to 4),
+                ColorFlowPair(3, COLOR_LIST[2], "Green", 1 to 1, 3 to 3),
+                ColorFlowPair(4, COLOR_LIST[3], "Yellow", 4 to 1, 4 to 4)
+            )
+            2 -> listOf(
+                ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 0 to 3),
+                ColorFlowPair(2, COLOR_LIST[1], "Blue", 1 to 0, 4 to 2),
+                ColorFlowPair(3, COLOR_LIST[2], "Green", 0 to 4, 3 to 4),
+                ColorFlowPair(4, COLOR_LIST[3], "Yellow", 2 to 2, 4 to 4),
+                ColorFlowPair(5, COLOR_LIST[4], "Orange", 1 to 1, 3 to 1)
+            )
+            3 -> listOf(
+                ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 3 to 2),
+                ColorFlowPair(2, COLOR_LIST[1], "Blue", 0 to 2, 4 to 4),
+                ColorFlowPair(3, COLOR_LIST[2], "Green", 1 to 0, 2 to 4),
+                ColorFlowPair(4, COLOR_LIST[3], "Yellow", 4 to 0, 4 to 3),
+                ColorFlowPair(5, COLOR_LIST[4], "Orange", 1 to 1, 3 to 1)
+            )
+            4 -> listOf(
+                ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 0 to 5),
+                ColorFlowPair(2, COLOR_LIST[1], "Blue", 1 to 0, 5 to 1),
+                ColorFlowPair(3, COLOR_LIST[2], "Green", 2 to 2, 4 to 4),
+                ColorFlowPair(4, COLOR_LIST[3], "Yellow", 0 to 2, 5 to 5),
+                ColorFlowPair(5, COLOR_LIST[4], "Orange", 3 to 0, 5 to 3)
+            )
+            5 -> listOf(
+                ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 2 to 3),
+                ColorFlowPair(2, COLOR_LIST[1], "Blue", 0 to 4, 5 to 1),
+                ColorFlowPair(3, COLOR_LIST[2], "Green", 1 to 1, 4 to 4),
+                ColorFlowPair(4, COLOR_LIST[3], "Yellow", 3 to 0, 5 to 5),
+                ColorFlowPair(5, COLOR_LIST[4], "Orange", 1 to 5, 4 to 1),
+                ColorFlowPair(6, COLOR_LIST[5], "Cyan", 0 to 2, 3 to 2)
+            )
+            6 -> listOf(
+                ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 0 to 6),
+                ColorFlowPair(2, COLOR_LIST[1], "Blue", 1 to 1, 5 to 5),
+                ColorFlowPair(3, COLOR_LIST[2], "Green", 2 to 0, 6 to 2),
+                ColorFlowPair(4, COLOR_LIST[3], "Yellow", 0 to 3, 6 to 6),
+                ColorFlowPair(5, COLOR_LIST[4], "Orange", 3 to 1, 4 to 3),
+                ColorFlowPair(6, COLOR_LIST[5], "Cyan", 1 to 6, 6 to 0)
+            )
+            else -> {
+                val rand = kotlin.random.Random(lvl.toLong() * 12345L)
+                val count = (4..6).random(rand)
+                val used = mutableSetOf<Pair<Int, Int>>()
+                val pairsList = mutableListOf<ColorFlowPair>()
+                for (i in 0 until count) {
+                    var a: Pair<Int, Int>
+                    var b: Pair<Int, Int>
+                    var attempts = 0
+                    do {
+                        a = rand.nextInt(gridSize) to rand.nextInt(gridSize)
+                        b = rand.nextInt(gridSize) to rand.nextInt(gridSize)
+                        attempts++
+                    } while ((a == b || used.contains(a) || used.contains(b) || kotlin.math.abs(a.first - b.first) + kotlin.math.abs(a.second - b.second) < 2) && attempts < 100)
+                    if (attempts < 100) {
+                        used.add(a)
+                        used.add(b)
+                        pairsList.add(
+                            ColorFlowPair(
+                                colorId = i + 1,
+                                color = COLOR_LIST[i % COLOR_LIST.size],
+                                name = "Color ${i + 1}",
+                                dotA = a,
+                                dotB = b
+                            )
+                        )
+                    }
+                }
+                if (pairsList.size < 3) {
+                    listOf(
+                        ColorFlowPair(1, COLOR_LIST[0], "Red", 0 to 0, 4 to 0),
+                        ColorFlowPair(2, COLOR_LIST[1], "Blue", 0 to 1, 0 to 4),
+                        ColorFlowPair(3, COLOR_LIST[2], "Green", 1 to 1, 3 to 3),
+                        ColorFlowPair(4, COLOR_LIST[3], "Yellow", 4 to 1, 4 to 4)
+                    )
+                } else pairsList
+            }
+        }
+
+        return ColorFlowLevel(
+            levelNumber = lvl,
+            gridSize = gridSize,
+            pairs = levelPairs
+        )
+    }
+}
+
 @Composable
 fun DotConnectGameDialog(
     onDismiss: () -> Unit,
@@ -9192,47 +10479,59 @@ fun DotConnectGameDialog(
     }
 
     var levelNumber by remember { mutableIntStateOf(1) }
+    var level by remember(levelNumber) { mutableStateOf(ColorFlowLevelGenerator.getLevel(levelNumber)) }
 
-    var currentLevel by remember { mutableStateOf(OneLinePuzzleGenerator.generateLevel(1)) }
+    // Map of colorId to list of grid coordinates (row, col) forming the path
+    val paths = remember { mutableStateMapOf<Int, List<Pair<Int, Int>>>() }
+    
+    // Active dragging path state
+    var activeColorId by remember { mutableStateOf<Int?>(null) }
+    val activePath = remember { mutableStateListOf<Pair<Int, Int>>() }
 
-    val userPath = remember { mutableStateListOf<Int>() }
-    val userTraversedEdgePairs = remember { mutableStateListOf<Pair<Int, Int>>() }
-
-    var dragTouchOffset by remember { mutableStateOf<Offset?>(null) }
     var isLevelCleared by remember { mutableStateOf(false) }
-    var hintEdge by remember { mutableStateOf<Pair<Int, Int>?>(null) }
 
-    fun loadLevel(lvl: Int) {
-        levelNumber = lvl.coerceAtLeast(1)
-        currentLevel = OneLinePuzzleGenerator.generateLevel(levelNumber)
-        userPath.clear()
-        userTraversedEdgePairs.clear()
-        dragTouchOffset = null
+    fun resetPaths() {
+        paths.clear()
+        activeColorId = null
+        activePath.clear()
         isLevelCleared = false
-        hintEdge = null
     }
 
     LaunchedEffect(levelNumber) {
-        loadLevel(levelNumber)
+        level = ColorFlowLevelGenerator.getLevel(levelNumber)
+        resetPaths()
     }
 
-    LaunchedEffect(userTraversedEdgePairs.size) {
-        if (userTraversedEdgePairs.isNotEmpty() && currentLevel.edges.isNotEmpty()) {
-            val allCovered = currentLevel.edges.all { edge ->
-                val pair = kotlin.math.min(edge.u, edge.v) to kotlin.math.max(edge.u, edge.v)
-                userTraversedEdgePairs.contains(pair)
-            }
-            if (allCovered && !isLevelCleared) {
+    // Helper: Find which color dot (if any) is at (r, c)
+    fun getDotColorIdAt(r: Int, c: Int): Int? {
+        val pair = level.pairs.find { it.dotA == (r to c) || it.dotB == (r to c) }
+        return pair?.colorId
+    }
+
+    // Helper: Check if path connects dotA and dotB
+    fun isPairConnected(pair: ColorFlowPair): Boolean {
+        val path = paths[pair.colorId] ?: return false
+        if (path.size < 2) return false
+        val head = path.first()
+        val tail = path.last()
+        return (head == pair.dotA && tail == pair.dotB) || (head == pair.dotB && tail == pair.dotA)
+    }
+
+    // Check win condition
+    LaunchedEffect(paths.size, activeColorId) {
+        if (!isLevelCleared && activeColorId == null) {
+            val allConnected = level.pairs.all { isPairConnected(it) }
+            if (allConnected && level.pairs.isNotEmpty()) {
                 isLevelCleared = true
                 val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
                 onGameFinished(
                     GameHistoryRecord(
                         id = System.currentTimeMillis().toString(),
-                        gameName = "Dot Connect Level $levelNumber",
-                        score = levelNumber * 100,
+                        gameName = "Color Flow Connect Level $levelNumber",
+                        score = levelNumber * 150,
                         stars = 3,
-                        titleTag = "🔴 ONE LINE MASTER",
-                        accuracyText = "100% Solved",
+                        titleTag = "🎨 COLOR FLOW MASTER",
+                        accuracyText = "100% Pipes Connected",
                         highestStreak = levelNumber,
                         timestamp = "Today, $nowFormatted"
                     )
@@ -9241,497 +10540,558 @@ fun DotConnectGameDialog(
         }
     }
 
-    fun isEdgeInLevel(u: Int, v: Int): Boolean {
-        return currentLevel.edges.any { it.matches(u, v) }
+    // Total cells covered calculation
+    val coveredCellsCount = remember(paths.toMap(), activePath.toList()) {
+        val allCells = mutableSetOf<Pair<Int, Int>>()
+        paths.values.forEach { p -> allCells.addAll(p) }
+        allCells.addAll(activePath)
+        allCells.size
     }
-
-    fun isEdgeTraversed(u: Int, v: Int): Boolean {
-        val pair1 = kotlin.math.min(u, v) to kotlin.math.max(u, v)
-        return userTraversedEdgePairs.contains(pair1)
-    }
+    val totalCells = level.gridSize * level.gridSize
+    val coveragePercentage = if (totalCells > 0) (coveredCellsCount * 100 / totalCells) else 0
 
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
-        Surface(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(0.dp),
-            color = Color(0xFF0F172A) // Sleek Dark Slate Canvas
+                .background(Color(0xFF090D16))
+                .padding(16.dp)
         ) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .windowInsetsPadding(WindowInsets.safeDrawing)
+                    .align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Main Bar (Dark Header with Title & Close)
-                Box(
+                // Top Header Row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color(0xFF1E293B))
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .padding(bottom = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Close Button Left
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF334155))
-                            .clickable { onDismiss() }
-                            .align(Alignment.CenterStart),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Level Title Center
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.align(Alignment.Center)
-                    ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF00E5FF).copy(alpha = 0.2f))
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "LEVEL $levelNumber",
+                                    color = Color(0xFF00E5FF),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "${level.gridSize}x${level.gridSize} Grid",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 12.sp
+                            )
+                        }
                         Text(
-                            text = "PACK ${(levelNumber - 1) / 20 + 1}",
-                            color = Color(0xFF94A3B8),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        Text(
-                            text = "LEVEL $levelNumber",
+                            text = "COLOR FLOW CONNECT",
                             color = Color.White,
-                            fontSize = 18.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.5.sp
                         )
                     }
-                }
 
-                // Top Options / Controls Bar (UNDO, RESET, HINT, PREV, NEXT)
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(Color(0xFF182232))
-                        .padding(vertical = 10.dp, horizontal = 12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Prev Level
-                        Row(
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        // Restart Button
+                        IconButton(
+                            onClick = { resetPaths() },
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26334D))
-                                .clickable { if (levelNumber > 1) loadLevel(levelNumber - 1) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Prev",
-                                tint = if (levelNumber > 1) Color.White else Color.Gray,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-
-                        // Undo Button
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26334D))
-                                .clickable {
-                                    if (userPath.isNotEmpty() && !isLevelCleared) {
-                                        val removed = userPath.removeAt(userPath.size - 1)
-                                        if (userPath.isNotEmpty()) {
-                                            val prev = userPath.last()
-                                            val pairToRemove = kotlin.math.min(removed, prev) to kotlin.math.max(removed, prev)
-                                            userTraversedEdgePairs.remove(pairToRemove)
-                                        }
-                                    }
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.ArrowBack,
-                                contentDescription = "Undo",
-                                tint = Color(0xFF38BDF8),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("UNDO", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        // Reset Button
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26334D))
-                                .clickable {
-                                    userPath.clear()
-                                    userTraversedEdgePairs.clear()
-                                    isLevelCleared = false
-                                    hintEdge = null
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E293B))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Reset",
-                                tint = Color(0xFFF43F5E),
-                                modifier = Modifier.size(16.dp)
+                                contentDescription = "Restart",
+                                tint = Color.White
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("RESET", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
 
-                        // Hint Button
-                        Row(
+                        // Close Button
+                        IconButton(
+                            onClick = onDismiss,
                             modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26334D))
-                                .clickable {
-                                    if (!isLevelCleared) {
-                                        val sol = currentLevel.solutionPath
-                                        for (i in 0 until sol.size - 1) {
-                                            val u = sol[i]
-                                            val v = sol[i + 1]
-                                            val pair = kotlin.math.min(u, v) to kotlin.math.max(u, v)
-                                            if (!userTraversedEdgePairs.contains(pair)) {
-                                                hintEdge = pair
-                                                break
-                                            }
-                                        }
-                                    }
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text("💡", fontSize = 14.sp)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("HINT", color = Color(0xFFFFD600), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        }
-
-                        // Next Level
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF26334D))
-                                .clickable { loadLevel(levelNumber + 1) }
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(Color(0xFF1E293B))
                         ) {
                             Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = "Next",
-                                tint = Color.White,
-                                modifier = Modifier.size(16.dp)
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = Color.White
                             )
                         }
                     }
                 }
 
-                // Dark Puzzle Canvas Container
+                // Pairs Progress Bar Cards
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    level.pairs.forEach { pair ->
+                        val isConnected = isPairConnected(pair)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isConnected) pair.color.copy(alpha = 0.25f)
+                                    else Color(0xFF1E293B)
+                                )
+                                .border(
+                                    width = 1.5.dp,
+                                    color = if (isConnected) pair.color else Color(0xFF334155),
+                                    shape = RoundedCornerShape(10.dp)
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(12.dp)
+                                        .clip(CircleShape)
+                                        .background(pair.color)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isConnected) "✓" else pair.name.take(3).uppercase(),
+                                    color = if (isConnected) pair.color else Color(0xFF94A3B8),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Stats Banner
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Flows: ${level.pairs.count { isPairConnected(it) }}/${level.pairs.size}",
+                        color = Color(0xFFE2E8F0),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Pipe Coverage: $coveragePercentage%",
+                        color = if (coveragePercentage == 100) Color(0xFF00E676) else Color(0xFFFFB300),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Interactive Color Flow Canvas Board
                 Box(
                     modifier = Modifier
-                        .weight(1f)
                         .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(20.dp))
                         .background(Color(0xFF0F172A))
-                        .pointerInput(currentLevel, isLevelCleared) {
-                            if (isLevelCleared) return@pointerInput
-
-                            val w = size.width.toFloat()
-                            val h = size.height.toFloat()
-
-                            fun getClosestNodeIndex(touchPos: Offset): Int? {
-                                val nodeRadiusPx = w * 0.12f
-                                for (i in currentLevel.nodes.indices) {
-                                    val nx = currentLevel.nodes[i].x * w
-                                    val ny = currentLevel.nodes[i].y * h
-                                    val dist = Math.hypot((touchPos.x - nx).toDouble(), (touchPos.y - ny).toDouble()).toFloat()
-                                    if (dist <= nodeRadiusPx) {
-                                        return i
-                                    }
-                                }
-                                return null
-                            }
-
-                            detectDragGestures(
-                                onDragStart = { startPos ->
-                                    val idx = getClosestNodeIndex(startPos)
-                                    if (idx != null && userPath.isEmpty()) {
-                                        userPath.add(idx)
-                                    }
-                                    dragTouchOffset = startPos
-                                },
-                                onDrag = { change, _ ->
-                                    dragTouchOffset = change.position
-                                    val closest = getClosestNodeIndex(change.position)
-                                    if (closest != null && userPath.isNotEmpty()) {
-                                        val lastNode = userPath.last()
-                                        if (closest != lastNode) {
-                                            if (userPath.size >= 2 && userPath[userPath.size - 2] == closest) {
-                                                // Undo last step
-                                                val removed = userPath.removeAt(userPath.size - 1)
-                                                val pairToRemove = kotlin.math.min(removed, closest) to kotlin.math.max(removed, closest)
-                                                userTraversedEdgePairs.remove(pairToRemove)
-                                            } else if (isEdgeInLevel(lastNode, closest) && !isEdgeTraversed(lastNode, closest)) {
-                                                userPath.add(closest)
-                                                val pairToAdd = kotlin.math.min(lastNode, closest) to kotlin.math.max(lastNode, closest)
-                                                userTraversedEdgePairs.add(pairToAdd)
-
-                                                if (userTraversedEdgePairs.size == currentLevel.edges.size) {
-                                                    isLevelCleared = true
-                                                    val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
-                                                    onGameFinished(
-                                                        GameHistoryRecord(
-                                                            id = System.currentTimeMillis().toString(),
-                                                            gameName = "Dot Connect Level $levelNumber",
-                                                            score = levelNumber * 100,
-                                                            stars = 3,
-                                                            titleTag = "🔴 ONE LINE MASTER",
-                                                            accuracyText = "100% Solved",
-                                                            highestStreak = levelNumber,
-                                                            timestamp = "Today, $nowFormatted"
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                },
-                                onDragEnd = { dragTouchOffset = null },
-                                onDragCancel = { dragTouchOffset = null }
-                            )
-                        }
-                        .pointerInput(currentLevel, isLevelCleared) {
-                            if (isLevelCleared) return@pointerInput
-
-                            val w = size.width.toFloat()
-                            val h = size.height.toFloat()
-
-                            detectTapGestures { tapPos ->
-                                val nodeRadiusPx = w * 0.12f
-                                var tappedIdx: Int? = null
-                                for (i in currentLevel.nodes.indices) {
-                                    val nx = currentLevel.nodes[i].x * w
-                                    val ny = currentLevel.nodes[i].y * h
-                                    val dist = Math.hypot((tapPos.x - nx).toDouble(), (tapPos.y - ny).toDouble()).toFloat()
-                                    if (dist <= nodeRadiusPx) {
-                                        tappedIdx = i
-                                        break
-                                    }
-                                }
-
-                                if (tappedIdx != null) {
-                                    if (userPath.isEmpty()) {
-                                        userPath.add(tappedIdx)
-                                    } else {
-                                        val lastNode = userPath.last()
-                                        if (tappedIdx != lastNode) {
-                                            if (userPath.size >= 2 && userPath[userPath.size - 2] == tappedIdx) {
-                                                val removed = userPath.removeAt(userPath.size - 1)
-                                                val pairToRemove = kotlin.math.min(removed, tappedIdx) to kotlin.math.max(removed, tappedIdx)
-                                                userTraversedEdgePairs.remove(pairToRemove)
-                                            } else if (isEdgeInLevel(lastNode, tappedIdx) && !isEdgeTraversed(lastNode, tappedIdx)) {
-                                                userPath.add(tappedIdx)
-                                                val pairToAdd = kotlin.math.min(lastNode, tappedIdx) to kotlin.math.max(lastNode, tappedIdx)
-                                                userTraversedEdgePairs.add(pairToAdd)
-
-                                                if (userTraversedEdgePairs.size == currentLevel.edges.size) {
-                                                    isLevelCleared = true
-                                                    val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
-                                                    onGameFinished(
-                                                        GameHistoryRecord(
-                                                            id = System.currentTimeMillis().toString(),
-                                                            gameName = "Dot Connect Level $levelNumber",
-                                                            score = levelNumber * 100,
-                                                            stars = 3,
-                                                            titleTag = "🔴 ONE LINE MASTER",
-                                                            accuracyText = "100% Solved",
-                                                            highestStreak = levelNumber,
-                                                            timestamp = "Today, $nowFormatted"
-                                                        )
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        .border(2.dp, Color(0xFF1E293B), RoundedCornerShape(20.dp)),
+                    contentAlignment = Alignment.Center
                 ) {
+                    var canvasSize by remember { mutableStateOf(Size.Zero) }
+
                     Canvas(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(24.dp)
+                            .padding(12.dp)
+                            .onGloballyPositioned { coords ->
+                                canvasSize = Size(coords.size.width.toFloat(), coords.size.height.toFloat())
+                            }
+                            .pointerInput(levelNumber) {
+                                detectDragGestures(
+                                    onDragStart = { offset ->
+                                        if (canvasSize.width > 0f && canvasSize.height > 0f) {
+                                            val cellSize = canvasSize.width / level.gridSize
+                                            val c = (offset.x / cellSize).toInt().coerceIn(0, level.gridSize - 1)
+                                            val r = (offset.y / cellSize).toInt().coerceIn(0, level.gridSize - 1)
+
+                                            // Check if user tapped a dot or an existing pipe line
+                                            var targetColorId = getDotColorIdAt(r, c)
+                                            if (targetColorId == null) {
+                                                // Check if tapped inside an existing path
+                                                val entry = paths.entries.find { it.value.contains(r to c) }
+                                                if (entry != null) {
+                                                    targetColorId = entry.key
+                                                }
+                                            }
+
+                                            if (targetColorId != null) {
+                                                activeColorId = targetColorId
+                                                activePath.clear()
+
+                                                val existing = paths[targetColorId]
+                                                if (existing != null && existing.contains(r to c)) {
+                                                    // Truncate path up to (r, c)
+                                                    val idx = existing.indexOf(r to c)
+                                                    activePath.addAll(existing.subList(0, idx + 1))
+                                                } else {
+                                                    activePath.add(r to c)
+                                                }
+                                                paths.remove(targetColorId)
+                                            }
+                                        }
+                                    },
+                                    onDrag = { change, _ ->
+                                        val colorId = activeColorId ?: return@detectDragGestures
+                                        if (canvasSize.width > 0f && canvasSize.height > 0f) {
+                                            val cellSize = canvasSize.width / level.gridSize
+                                            val c = (change.position.x / cellSize).toInt().coerceIn(0, level.gridSize - 1)
+                                            val r = (change.position.y / cellSize).toInt().coerceIn(0, level.gridSize - 1)
+
+                                            if (activePath.isNotEmpty()) {
+                                                val last = activePath.last()
+                                                if (last != (r to c)) {
+                                                    // Only allow orthogonal adjacency
+                                                    val dist = kotlin.math.abs(last.first - r) + kotlin.math.abs(last.second - c)
+                                                    if (dist == 1) {
+                                                        // Check if dragging onto another color's dot
+                                                        val otherDotColor = getDotColorIdAt(r, c)
+                                                        if (otherDotColor != null && otherDotColor != colorId) {
+                                                            // Cannot move onto a different color's dot
+                                                            return@detectDragGestures
+                                                        }
+
+                                                        // If moving into another color's pipe line, clear that pipe!
+                                                        paths.entries.filter { it.key != colorId }.forEach { (otherId, pList) ->
+                                                            if (pList.contains(r to c)) {
+                                                                paths.remove(otherId)
+                                                            }
+                                                        }
+
+                                                        // If back-tracking along current path
+                                                        if (activePath.contains(r to c)) {
+                                                            val idx = activePath.indexOf(r to c)
+                                                            while (activePath.size > idx + 1) {
+                                                                activePath.removeAt(activePath.size - 1)
+                                                            }
+                                                        } else {
+                                                            val pair = level.pairs.find { it.colorId == colorId }
+                                                            val targetEndDot = if (activePath.first() == pair?.dotA) pair?.dotB else pair?.dotA
+                                                            
+                                                            // Add cell to path
+                                                            activePath.add(r to c)
+
+                                                            // If reached target end dot, finish line automatically
+                                                            if ((r to c) == targetEndDot) {
+                                                                paths[colorId] = activePath.toList()
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    },
+                                    onDragEnd = {
+                                        val colorId = activeColorId
+                                        if (colorId != null) {
+                                            if (activePath.size >= 2) {
+                                                paths[colorId] = activePath.toList()
+                                            }
+                                        }
+                                        activeColorId = null
+                                        activePath.clear()
+                                    },
+                                    onDragCancel = {
+                                        val colorId = activeColorId
+                                        if (colorId != null) {
+                                            if (activePath.size >= 2) {
+                                                paths[colorId] = activePath.toList()
+                                            }
+                                        }
+                                        activeColorId = null
+                                        activePath.clear()
+                                    }
+                                )
+                            }
                     ) {
-                        fun getNodePos(index: Int): Offset {
-                            val node = currentLevel.nodes[index]
-                            return Offset(node.x * size.width, node.y * size.height)
-                        }
+                        val gSize = level.gridSize
+                        val cellSize = size.width / gSize
 
-                        // 1. Draw HIGH-CONTRAST clear guide lines (untraversed edges)
-                        for (edge in currentLevel.edges) {
-                            val isTraversed = isEdgeTraversed(edge.u, edge.v)
-                            if (!isTraversed) {
-                                val p1 = getNodePos(edge.u)
-                                val p2 = getNodePos(edge.v)
-                                // Outer track stroke (glowing sky blue)
-                                drawLine(
-                                    color = Color(0xFF38BDF8).copy(alpha = 0.45f),
-                                    start = p1,
-                                    end = p2,
-                                    strokeWidth = 24f,
-                                    cap = StrokeCap.Round
-                                )
-                                // Inner guide stroke (bright crisp white)
-                                drawLine(
-                                    color = Color.White,
-                                    start = p1,
-                                    end = p2,
-                                    strokeWidth = 10f,
-                                    cap = StrokeCap.Round
+                        // 1. Draw Grid Cells
+                        for (r in 0 until gSize) {
+                            for (c in 0 until gSize) {
+                                val left = c * cellSize
+                                val top = r * cellSize
+                                drawRoundRect(
+                                    color = Color(0xFF1E293B).copy(alpha = 0.5f),
+                                    topLeft = Offset(left + 2.dp.toPx(), top + 2.dp.toPx()),
+                                    size = Size(cellSize - 4.dp.toPx(), cellSize - 4.dp.toPx()),
+                                    cornerRadius = CornerRadius(8.dp.toPx(), 8.dp.toPx())
                                 )
                             }
                         }
 
-                        // 2. Draw Hint edge in glowing gold if active
-                        hintEdge?.let { edge ->
-                            val p1 = getNodePos(edge.first)
-                            val p2 = getNodePos(edge.second)
-                            drawLine(
-                                color = Color(0xFFFFD600),
-                                start = p1,
-                                end = p2,
-                                strokeWidth = 24f,
-                                cap = StrokeCap.Round
+                        // Helper to render a pipe path
+                        fun drawPipePath(pathList: List<Pair<Int, Int>>, pipeColor: Color) {
+                            if (pathList.size < 2) return
+                            val composePath = androidx.compose.ui.graphics.Path()
+                            val firstCenter = Offset(
+                                (pathList[0].second + 0.5f) * cellSize,
+                                (pathList[0].first + 0.5f) * cellSize
                             )
-                        }
+                            composePath.moveTo(firstCenter.x, firstCenter.y)
 
-                        // 3. Draw user traversed edges in vibrant neon color
-                        for (i in 0 until userPath.size - 1) {
-                            val p1 = getNodePos(userPath[i])
-                            val p2 = getNodePos(userPath[i + 1])
-                            drawLine(
-                                color = currentLevel.themeDotColor,
-                                start = p1,
-                                end = p2,
-                                strokeWidth = 22f,
-                                cap = StrokeCap.Round
-                            )
-                        }
-
-                        // 4. Live line to drag offset
-                        if (userPath.isNotEmpty() && dragTouchOffset != null && !isLevelCleared) {
-                            val lastPos = getNodePos(userPath.last())
-                            drawLine(
-                                color = currentLevel.themeDotColor.copy(alpha = 0.7f),
-                                start = lastPos,
-                                end = dragTouchOffset!!,
-                                strokeWidth = 12f,
-                                cap = StrokeCap.Round
-                            )
-                        }
-
-                        // 5. Draw Node Dots (Circles with vibrant glow)
-                        val dotRadiusPx = size.width * 0.052f
-                        for (i in currentLevel.nodes.indices) {
-                            val center = getNodePos(i)
-                            val isVisited = userPath.contains(i)
-                            val isLast = userPath.lastOrNull() == i
-
-                            // Pulse halo for active dot
-                            if (isLast) {
-                                drawCircle(
-                                    color = currentLevel.themeDotColor.copy(alpha = 0.25f),
-                                    radius = dotRadiusPx * 2.3f,
-                                    center = center
+                            for (i in 1 until pathList.size) {
+                                val ptCenter = Offset(
+                                    (pathList[i].second + 0.5f) * cellSize,
+                                    (pathList[i].first + 0.5f) * cellSize
                                 )
-                                drawCircle(
-                                    color = currentLevel.themeDotColor.copy(alpha = 0.5f),
-                                    radius = dotRadiusPx * 1.6f,
-                                    center = center
-                                )
+                                composePath.lineTo(ptCenter.x, ptCenter.y)
                             }
 
-                            // Solid Vibrant Node Circle
-                            drawCircle(
-                                color = currentLevel.themeDotColor,
-                                radius = dotRadiusPx,
-                                center = center
+                            // Outer Glow Pipe
+                            drawPath(
+                                path = composePath,
+                                color = pipeColor.copy(alpha = 0.4f),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                    width = cellSize * 0.48f,
+                                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                    join = androidx.compose.ui.graphics.StrokeJoin.Round
+                                )
                             )
 
-                            // Inner white/bright core dot
-                            drawCircle(
-                                color = Color.White,
-                                radius = dotRadiusPx * 0.38f,
-                                center = center
+                            // Main Pipe Body
+                            drawPath(
+                                path = composePath,
+                                color = pipeColor,
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                    width = cellSize * 0.32f,
+                                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                    join = androidx.compose.ui.graphics.StrokeJoin.Round
+                                )
+                            )
+
+                            // Inner Glowing Center Specular Line
+                            drawPath(
+                                path = composePath,
+                                color = Color.White.copy(alpha = 0.6f),
+                                style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                    width = cellSize * 0.10f,
+                                    cap = androidx.compose.ui.graphics.StrokeCap.Round,
+                                    join = androidx.compose.ui.graphics.StrokeJoin.Round
+                                )
                             )
                         }
-                    }
 
-                    // Level Victory Overlay Modal
-                    if (isLevelCleared) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(Color(0xFF0F172A).copy(alpha = 0.92f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                modifier = Modifier
-                                    .padding(24.dp)
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(Color(0xFF1E293B))
-                                    .border(1.5.dp, currentLevel.themeDotColor, RoundedCornerShape(24.dp))
-                                    .padding(28.dp)
-                            ) {
-                                Text("🎉", fontSize = 48.sp)
-                                Spacer(modifier = Modifier.height(10.dp))
-                                Text(
-                                    text = "LEVEL $levelNumber CLEARED!",
-                                    color = Color.White,
-                                    fontSize = 22.sp,
-                                    fontWeight = FontWeight.Black
+                        // 2. Draw Saved Completed Paths
+                        paths.forEach { (colorId, pathList) ->
+                            val pair = level.pairs.find { it.colorId == colorId }
+                            if (pair != null) {
+                                drawPipePath(pathList, pair.color)
+                            }
+                        }
+
+                        // 3. Draw Active Dragging Path
+                        val curActiveId = activeColorId
+                        if (curActiveId != null && activePath.isNotEmpty()) {
+                            val pair = level.pairs.find { it.colorId == curActiveId }
+                            if (pair != null) {
+                                drawPipePath(activePath.toList(), pair.color)
+                            }
+                        }
+
+                        // 4. Draw Color Dots
+                        level.pairs.forEach { pair ->
+                            val dots = listOf(pair.dotA, pair.dotB)
+                            val isConnected = isPairConnected(pair)
+
+                            dots.forEach { (r, c) ->
+                                val center = Offset((c + 0.5f) * cellSize, (r + 0.5f) * cellSize)
+                                val radius = cellSize * 0.32f
+
+                                // Outer Pulsing Ring / Glow
+                                drawCircle(
+                                    color = pair.color.copy(alpha = if (isConnected) 0.5f else 0.25f),
+                                    radius = radius * 1.35f,
+                                    center = center
                                 )
-                                Spacer(modifier = Modifier.height(6.dp))
-                                Text(
-                                    text = "All lines connected in 1 continuous stroke!",
-                                    color = Color(0xFF94A3B8),
-                                    fontSize = 13.sp
+
+                                // Main Solid Dot Body
+                                drawCircle(
+                                    color = pair.color,
+                                    radius = radius,
+                                    center = center
                                 )
 
-                                Spacer(modifier = Modifier.height(24.dp))
+                                // Inner Core Specular Highlight
+                                drawCircle(
+                                    color = Color.White.copy(alpha = 0.85f),
+                                    radius = radius * 0.35f,
+                                    center = Offset(center.x - radius * 0.25f, center.y - radius * 0.25f)
+                                )
 
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(50.dp)
-                                        .clip(RoundedCornerShape(25.dp))
-                                        .background(currentLevel.themeDotColor)
-                                        .clickable {
-                                            loadLevel(levelNumber + 1)
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "NEXT LEVEL >",
+                                // Checkmark inside dot if pair connected
+                                if (isConnected) {
+                                    drawCircle(
                                         color = Color.White,
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Black,
-                                        letterSpacing = 1.sp
+                                        radius = radius * 0.45f,
+                                        center = center
+                                    )
+                                    drawCircle(
+                                        color = pair.color,
+                                        radius = radius * 0.32f,
+                                        center = center
                                     )
                                 }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // Bottom Level Navigation Controls
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Button(
+                        onClick = {
+                            if (levelNumber > 1) {
+                                levelNumber--
+                            }
+                        },
+                        enabled = levelNumber > 1,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("< PREV", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+
+                    Text(
+                        text = "Level $levelNumber / 10",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Button(
+                        onClick = {
+                            levelNumber++
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("NEXT >", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Level Cleared Victory Overlay Popup
+            AnimatedVisibility(
+                visible = isLevelCleared,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut()
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.82f))
+                        .clickable(enabled = false) {},
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(0.88f)
+                            .padding(16.dp),
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF0F172A)),
+                        border = BorderStroke(2.dp, Color(0xFF00E5FF))
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "🎉 EXCELLENT!",
+                                color = Color(0xFFFFD600),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 2.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "LEVEL $levelNumber CLEARED!",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "All color pipes connected without overlapping!",
+                                color = Color(0xFF94A3B8),
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                repeat(3) {
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = "Star",
+                                        tint = Color(0xFFFFD600),
+                                        modifier = Modifier.size(36.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(24.dp))
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(52.dp)
+                                    .clip(RoundedCornerShape(26.dp))
+                                    .background(Color(0xFF00E5FF))
+                                    .clickable {
+                                        levelNumber++
+                                        resetPaths()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "NEXT LEVEL >",
+                                    color = Color.Black,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Black,
+                                    letterSpacing = 1.sp
+                                )
                             }
                         }
                     }
@@ -10747,7 +12107,7 @@ fun TicTacToeGameDialog(
                                     shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.height(38.dp)
                                 ) {
-                                    Icon(
+                                     Icon(
                                         imageVector = Icons.Default.PlayArrow,
                                         contentDescription = "Next Match",
                                         tint = Color.Black,
@@ -10765,6 +12125,600 @@ fun TicTacToeGameDialog(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+data class BlockPieceData(
+    val id: String,
+    val shape: List<Pair<Int, Int>>,
+    val colorId: Int,
+    val widthInCells: Int,
+    val heightInCells: Int
+)
+
+data class SmokeParticleData(
+    var xPx: Float,
+    var yPx: Float,
+    val color: Color,
+    var vx: Float,
+    var vy: Float,
+    var size: Float,
+    var alpha: Float = 1.0f
+)
+
+fun getBlockColor(colorId: Int): Color {
+    return when (colorId) {
+        1 -> Color(0xFF00E5FF)
+        2 -> Color(0xFFFFD600)
+        3 -> Color(0xFFA855F7)
+        4 -> Color(0xFFFF1744)
+        5 -> Color(0xFF00E676)
+        6 -> Color(0xFF2979FF)
+        else -> Color(0xFF00E5FF)
+    }
+}
+
+fun generateRandomBlockPiece(): BlockPieceData {
+    val templates = listOf(
+        Pair(listOf(Pair(0, 0)), 1 to 1),
+        Pair(listOf(Pair(0, 0), Pair(0, 1)), 2 to 1),
+        Pair(listOf(Pair(0, 0), Pair(1, 0)), 1 to 2),
+        Pair(listOf(Pair(0, 0), Pair(0, 1), Pair(0, 2)), 3 to 1),
+        Pair(listOf(Pair(0, 0), Pair(1, 0), Pair(2, 0)), 1 to 3),
+        Pair(listOf(Pair(0, 0), Pair(0, 1), Pair(1, 0), Pair(1, 1)), 2 to 2),
+        Pair(listOf(Pair(0, 1), Pair(1, 0), Pair(1, 1), Pair(1, 2), Pair(2, 1)), 3 to 3),
+        Pair(listOf(Pair(0, 0), Pair(0, 1), Pair(1, 0)), 2 to 2),
+        Pair(listOf(Pair(0, 0), Pair(1, 0), Pair(1, 1)), 2 to 2),
+        Pair(listOf(Pair(0, 0), Pair(1, 0), Pair(2, 0), Pair(2, 1)), 2 to 3),
+        Pair(listOf(Pair(0, 0), Pair(0, 1), Pair(0, 2), Pair(1, 1)), 3 to 2),
+        Pair(listOf(Pair(0, 0), Pair(0, 1), Pair(0, 2), Pair(0, 3)), 4 to 1)
+    )
+
+    val (shape, dim) = templates.random()
+    val colorId = (1..6).random()
+    return BlockPieceData(
+        id = java.util.UUID.randomUUID().toString(),
+        shape = shape,
+        colorId = colorId,
+        widthInCells = dim.first,
+        heightInCells = dim.second
+    )
+}
+
+fun canPlacePieceOnGrid(
+    grid: List<List<Int>>,
+    piece: BlockPieceData,
+    targetRow: Int,
+    targetCol: Int
+): Boolean {
+    for ((dr, dc) in piece.shape) {
+        val r = targetRow + dr
+        val c = targetCol + dc
+        if (r !in 0..7 || c !in 0..7) return false
+        if (grid[r][c] != 0) return false
+    }
+    return true
+}
+
+fun canAnyPieceFitGrid(
+    grid: List<List<Int>>,
+    pieces: List<BlockPieceData?>
+): Boolean {
+    val activePieces = pieces.filterNotNull()
+    if (activePieces.isEmpty()) return true
+
+    for (p in activePieces) {
+        for (r in 0..7) {
+            for (c in 0..7) {
+                if (canPlacePieceOnGrid(grid, p, r, c)) {
+                    return true
+                }
+            }
+        }
+    }
+    return false
+}
+
+@Composable
+fun BlockPuzzleGameDialog(
+    onDismiss: () -> Unit,
+    onGameFinished: (GameHistoryRecord) -> Unit
+) {
+    var score by remember { mutableStateOf(0) }
+    var bestScore by remember { mutableStateOf(428) }
+    var showPausePopup by remember { mutableStateOf(false) }
+    var isGameOver by remember { mutableStateOf(false) }
+
+    val gridState = remember { mutableStateListOf<MutableList<Int>>().apply { repeat(8) { add(MutableList(8) { 0 }) } } }
+
+    val suggestedPieces = remember {
+        mutableStateListOf<BlockPieceData?>().apply {
+            repeat(3) { add(generateRandomBlockPiece()) }
+        }
+    }
+
+    var selectedPieceIndex by remember { mutableStateOf<Int?>(null) }
+    var draggedPieceIndex by remember { mutableStateOf<Int?>(null) }
+    var dragTouchPos by remember { mutableStateOf(Offset.Zero) }
+
+    var gridTopLeftPx by remember { mutableStateOf(Offset.Zero) }
+    var gridCellPx by remember { mutableStateOf(0f) }
+
+    val smokeParticles = remember { mutableStateListOf<SmokeParticleData>() }
+
+    LaunchedEffect(smokeParticles.size) {
+        if (smokeParticles.isNotEmpty()) {
+            while (smokeParticles.isNotEmpty()) {
+                val iterator = smokeParticles.listIterator()
+                while (iterator.hasNext()) {
+                    val p = iterator.next()
+                    p.xPx += p.vx
+                    p.yPx += p.vy
+                    p.alpha -= 0.04f
+                    if (p.alpha <= 0f) {
+                        iterator.remove()
+                    }
+                }
+                delay(16L)
+            }
+        }
+    }
+
+    val spawnSmokeAtCell = { r: Int, c: Int, color: Color ->
+        if (gridCellPx > 0f) {
+            val centerX = gridTopLeftPx.x + (c + 0.5f) * gridCellPx
+            val centerY = gridTopLeftPx.y + (r + 0.5f) * gridCellPx
+            repeat(8) {
+                val angle = (0..360).random() * (Math.PI / 180.0)
+                val speed = (3..12).random().toFloat()
+                smokeParticles.add(
+                    SmokeParticleData(
+                        xPx = centerX,
+                        yPx = centerY,
+                        color = color,
+                        vx = (Math.cos(angle) * speed).toFloat(),
+                        vy = (Math.sin(angle) * speed).toFloat(),
+                        size = (10..22).random().toFloat(),
+                        alpha = 1.0f
+                    )
+                )
+            }
+        }
+    }
+
+    val attemptPlacePiece = { r: Int, c: Int, pIndex: Int ->
+        val piece = suggestedPieces.getOrNull(pIndex)
+        if (piece != null && canPlacePieceOnGrid(gridState, piece, r, c)) {
+            val color = getBlockColor(piece.colorId)
+
+            for ((dr, dc) in piece.shape) {
+                val targetR = r + dr
+                val targetC = c + dc
+                gridState[targetR][targetC] = piece.colorId
+                spawnSmokeAtCell(targetR, targetC, color)
+            }
+
+            score += piece.shape.size * 10
+            if (score > bestScore) bestScore = score
+
+            suggestedPieces[pIndex] = null
+            selectedPieceIndex = null
+            draggedPieceIndex = null
+
+            val rowsToClear = (0..7).filter { row -> (0..7).all { col -> gridState[row][col] > 0 } }
+            val colsToClear = (0..7).filter { col -> (0..7).all { row -> gridState[row][col] > 0 } }
+
+            if (rowsToClear.isNotEmpty() || colsToClear.isNotEmpty()) {
+                val clearedCells = mutableSetOf<Pair<Int, Int>>()
+                rowsToClear.forEach { row ->
+                    (0..7).forEach { col -> clearedCells.add(row to col) }
+                }
+                colsToClear.forEach { col ->
+                    (0..7).forEach { row -> clearedCells.add(row to col) }
+                }
+
+                clearedCells.forEach { (cellR, cellC) ->
+                    val cellColor = getBlockColor(gridState[cellR][cellC])
+                    spawnSmokeAtCell(cellR, cellC, cellColor)
+                    gridState[cellR][cellC] = 0
+                }
+
+                val totalLines = rowsToClear.size + colsToClear.size
+                score += totalLines * 100 * (if (totalLines > 1) 2 else 1)
+                if (score > bestScore) bestScore = score
+            }
+
+            if (suggestedPieces.all { it == null }) {
+                repeat(3) { idx ->
+                    suggestedPieces[idx] = generateRandomBlockPiece()
+                }
+            }
+
+            if (!canAnyPieceFitGrid(gridState, suggestedPieces)) {
+                isGameOver = true
+                val nowFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date())
+                onGameFinished(
+                    GameHistoryRecord(
+                        gameName = "Color Block Puzzle (रंग ब्लॉक)",
+                        score = score,
+                        stars = if (score > 300) 3 else if (score > 100) 2 else 1,
+                        titleTag = "Score $score",
+                        accuracyText = "High Score: $bestScore",
+                        highestStreak = score / 10,
+                        timestamp = "Today, $nowFormatted"
+                    )
+                )
+            }
+        }
+    }
+
+    androidx.compose.ui.window.Dialog(
+        onDismissRequest = { showPausePopup = true },
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF0B1120))
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { showPausePopup = true },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E293B))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Pause",
+                            tint = Color.White
+                        )
+                    }
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "COLOR BLOCK PUZZLE",
+                            color = Color.White,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 1.sp
+                        )
+                        Text(
+                            text = "👁️ EYE FITNESS & SPATIAL VISION",
+                            color = Color(0xFF00E676),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF00E676).copy(alpha = 0.15f))
+                            .border(1.dp, Color(0xFF00E676), RoundedCornerShape(8.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            text = "8x8",
+                            color = Color(0xFF00E676),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF1E293B))
+                        .border(1.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Score",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🏆", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$score",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(30.dp)
+                            .background(Color(0xFF334155))
+                    )
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Best Score",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = "🌟", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "$bestScore",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF0F172A))
+                        .border(2.dp, Color(0xFF334155), RoundedCornerShape(16.dp))
+                        .onGloballyPositioned { coords ->
+                            gridTopLeftPx = coords.positionInRoot()
+                            gridCellPx = coords.size.width.toFloat() / 8f
+                        }
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        for (r in 0 until 8) {
+                            Row(modifier = Modifier.weight(1f)) {
+                                for (c in 0 until 8) {
+                                    val cellValue = gridState[r][c]
+
+                                    val activePieceIndex = draggedPieceIndex ?: selectedPieceIndex
+                                    var isHoverPreview = false
+                                    var isHoverValid = false
+
+                                    if (activePieceIndex != null && gridCellPx > 0f) {
+                                        val activePiece = suggestedPieces.getOrNull(activePieceIndex)
+                                        if (activePiece != null) {
+                                            val hoverCol = if (draggedPieceIndex != null) {
+                                                ((dragTouchPos.x - gridTopLeftPx.x) / gridCellPx).toInt()
+                                            } else -1
+
+                                            val hoverRow = if (draggedPieceIndex != null) {
+                                                ((dragTouchPos.y - gridTopLeftPx.y) / gridCellPx).toInt()
+                                            } else -1
+
+                                            if (hoverRow in 0..7 && hoverCol in 0..7) {
+                                                val isValid = canPlacePieceOnGrid(gridState, activePiece, hoverRow, hoverCol)
+                                                for ((dr, dc) in activePiece.shape) {
+                                                    if (r == hoverRow + dr && c == hoverCol + dc) {
+                                                        isHoverPreview = true
+                                                        isHoverValid = isValid
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    val cellColor = if (cellValue > 0) {
+                                        getBlockColor(cellValue)
+                                    } else if (isHoverPreview) {
+                                        if (isHoverValid) Color(0xFF00E676).copy(alpha = 0.6f)
+                                        else Color(0xFFFF1744).copy(alpha = 0.6f)
+                                    } else {
+                                        Color(0xFF1E293B)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .fillMaxSize()
+                                            .padding(2.dp)
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(cellColor)
+                                            .border(
+                                                width = 1.dp,
+                                                color = if (cellValue > 0) Color.White.copy(alpha = 0.3f) else Color(0xFF334155),
+                                                shape = RoundedCornerShape(6.dp)
+                                            )
+                                            .clickable {
+                                                if (selectedPieceIndex != null) {
+                                                    attemptPlacePiece(r, c, selectedPieceIndex!!)
+                                                }
+                                            }
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Canvas(modifier = Modifier.fillMaxSize()) {
+                        smokeParticles.forEach { p ->
+                            drawCircle(
+                                color = p.color.copy(alpha = p.alpha.coerceIn(0f, 1f)),
+                                radius = p.size,
+                                center = Offset(p.xPx - gridTopLeftPx.x, p.yPx - gridTopLeftPx.y)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                Text(
+                    text = if (selectedPieceIndex != null) "Tap on grid cell to place piece!" else "Swipe/Drag or Tap a block to set on grid",
+                    color = Color(0xFF94A3B8),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(110.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    for (i in 0 until 3) {
+                        val piece = suggestedPieces.getOrNull(i)
+                        val isSelected = selectedPieceIndex == i
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(if (isSelected) Color(0xFF00E676).copy(alpha = 0.2f) else Color(0xFF1E293B))
+                                .border(
+                                    width = if (isSelected) 2.dp else 1.dp,
+                                    color = if (isSelected) Color(0xFF00E676) else Color(0xFF334155),
+                                    shape = RoundedCornerShape(16.dp)
+                                )
+                                .clickable {
+                                    if (piece != null) {
+                                        selectedPieceIndex = if (isSelected) null else i
+                                    }
+                                }
+                                .pointerInput(piece) {
+                                    if (piece != null) {
+                                        detectDragGestures(
+                                            onDragStart = { offset ->
+                                                draggedPieceIndex = i
+                                                dragTouchPos = offset + gridTopLeftPx
+                                            },
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                dragTouchPos += dragAmount
+                                            },
+                                            onDragEnd = {
+                                                if (gridCellPx > 0f) {
+                                                    val targetC = ((dragTouchPos.x - gridTopLeftPx.x) / gridCellPx).toInt()
+                                                    val targetR = ((dragTouchPos.y - gridTopLeftPx.y) / gridCellPx).toInt()
+                                                    if (targetR in 0..7 && targetC in 0..7) {
+                                                        attemptPlacePiece(targetR, targetC, i)
+                                                    }
+                                                }
+                                                draggedPieceIndex = null
+                                            },
+                                            onDragCancel = {
+                                                draggedPieceIndex = null
+                                            }
+                                        )
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (piece != null) {
+                                val pColor = getBlockColor(piece.colorId)
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    for (r in 0 until piece.heightInCells) {
+                                        Row {
+                                            for (c in 0 until piece.widthInCells) {
+                                                val hasTile = piece.shape.contains(r to c)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(16.dp)
+                                                        .padding(1.5.dp)
+                                                        .clip(RoundedCornerShape(3.dp))
+                                                        .background(if (hasTile) pColor else Color.Transparent)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+            }
+
+            if (showPausePopup) {
+                AlertDialog(
+                    onDismissRequest = { showPausePopup = false },
+                    title = { Text("Pause Game", color = Color.White, fontWeight = FontWeight.Bold) },
+                    text = { Text("Do you want to exit or resume playing?", color = Color(0xFFCBD5E1)) },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                showPausePopup = false
+                                onDismiss()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF1744))
+                        ) {
+                            Text("Exit Game", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPausePopup = false }) {
+                            Text("Resume", color = Color(0xFF38BDF8), fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    containerColor = Color(0xFF1E293B)
+                )
+            }
+
+            if (isGameOver) {
+                AlertDialog(
+                    onDismissRequest = { },
+                    title = { Text("Game Over! 🧩", color = Color.White, fontWeight = FontWeight.Bold) },
+                    text = {
+                        Column {
+                            Text("No more moves available!", color = Color(0xFFCBD5E1))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text("Your Score: $score Pts", color = Color(0xFF00E676), fontWeight = FontWeight.Black, fontSize = 18.sp)
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                isGameOver = false
+                                score = 0
+                                repeat(8) { r -> repeat(8) { c -> gridState[r][c] = 0 } }
+                                repeat(3) { idx -> suggestedPieces[idx] = generateRandomBlockPiece() }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E676))
+                        ) {
+                            Text("Play Again", color = Color.Black, fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { onDismiss() }) {
+                            Text("Exit", color = Color(0xFFFF1744), fontWeight = FontWeight.Bold)
+                        }
+                    },
+                    containerColor = Color(0xFF1E293B)
+                )
             }
         }
     }
