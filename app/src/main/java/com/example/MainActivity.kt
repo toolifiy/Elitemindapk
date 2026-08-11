@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
@@ -89,6 +90,8 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.LockClock
@@ -546,22 +549,22 @@ fun HomeScreen() {
     val missionsList = remember {
         mutableStateListOf(
             MissionItem("m1", "DAILY", "Play 3 Brain Games", "Play any 3 brain training games today", "🧠", 0, 2, 3, 1, false),
+            MissionItem("m13", "DAILY", "Play 1 Hour Straight", "Play 1 hour straight continuously to earn tokens", "⏱️", 0, 2, 60, 45, false),
             MissionItem("m2", "DAILY", "Enter Battle Arena", "Play a match in Battle Arena mode", "⚔️", 0, 3, 1, 0, false),
             MissionItem("m3", "DAILY", "Math Master 100+ Score", "Score at least 100 points in Math Challenge", "🔢", 0, 4, 1, 0, false),
             MissionItem("m4", "DAILY", "Speed Reflex Hit", "Complete 1 speed reflex test under 300ms", "⚡", 0, 2, 1, 1, false),
+            MissionItem("m14", "DAILY", "30 Mins Focus Session", "Complete 30 minutes of continuous brain focus", "🧘", 0, 3, 30, 15, false),
             MissionItem("m5", "DAILY", "Connect 5 Dots", "Connect 5 dots in the Dot Connect puzzle", "🧩", 0, 2, 5, 2, false),
             MissionItem("m6", "DAILY", "Defeat AI in Tic-Tac-Toe", "Win 1 match against AI bot", "🤖", 0, 3, 1, 0, false),
             MissionItem("m7", "DAILY", "Arrow Click Reflex 0.2s", "Hit target arrow within 0.2 seconds", "🏹", 0, 2, 1, 0, false),
             MissionItem("m8", "DAILY", "Watch Video Bonus", "Claim free tokens bonus from store", "🎬", 0, 5, 1, 0, false),
-            MissionItem("m13", "DAILY", "Play 1 Hour a Day", "Spend 60 minutes playing brain training games", "⏰", 0, 4, 60, 45, false),
-            MissionItem("m14", "DAILY", "Daily Brain Trainer", "Keep your cognitive focus active", "🎯", 0, 2, 15, 8, false),
             MissionItem("m15", "DAILY", "Pro Gamer Streak", "Win 5 matches in any category", "🏅", 0, 5, 5, 3, false),
             MissionItem("m16", "DAILY", "Infinite Reflex", "Tap 50 target red dots successfully", "🔴", 0, 3, 50, 32, false),
-            MissionItem("m9", "ACHIEVEMENT", "Reach Level 5 Master", "Gain total 5,000 XP to reach Level 5", "👑", 0, 10, 5, 1, false),
-            MissionItem("m10", "ACHIEVEMENT", "Maintain 3-Day Win Streak", "Win at least 1 game for 3 consecutive days", "🔥", 0, 8, 3, 1, false),
-            MissionItem("m11", "ACHIEVEMENT", "Play 10 Tournaments", "Participate in 10 Battle Tournaments", "🏆", 0, 12, 10, 2, false),
-            MissionItem("m12", "ACHIEVEMENT", "Token Collector 50", "Accumulate 50 total Tokens in balance", "⚡", 0, 10, 50, 20, false),
-            MissionItem("m17", "ACHIEVEMENT", "Master Mind Champion", "Earn 3,500 total Brain XP", "🧬", 0, 8, 3500, 1250, false)
+            MissionItem("m9", "ACHIEVEMENT", "Reach Level 5 Master", "Gain total 5,000 XP to reach Level 5", "👑", 0, 5, 5, 1, false),
+            MissionItem("m10", "ACHIEVEMENT", "Maintain 3-Day Win Streak", "Win at least 1 game for 3 consecutive days", "🔥", 0, 4, 3, 1, false),
+            MissionItem("m11", "ACHIEVEMENT", "Play 10 Tournaments", "Participate in 10 Battle Tournaments", "🏆", 0, 5, 10, 2, false),
+            MissionItem("m12", "ACHIEVEMENT", "Token Collector 50", "Accumulate 50 total Tokens in balance", "⚡", 0, 5, 50, 20, false),
+            MissionItem("m17", "ACHIEVEMENT", "Master Mind Champion", "Earn 3,500 total Brain XP", "🧬", 0, 5, 3500, 1250, false)
         )
     }
 
@@ -1022,7 +1025,6 @@ fun HomeScreen() {
                             MissionsOverviewCard(
                                 missionsList = missionsList,
                                 horizontalPadding = adaptiveHorizontalPadding,
-                                onSeeAllClick = { selectedTab = "PROGRESS" },
                                 onOpenGame = { gameTitle ->
                                     val lowercaseTitle = gameTitle.lowercase()
                                     when {
@@ -5193,9 +5195,11 @@ data class MissionItem(
 fun MissionsOverviewCard(
     missionsList: List<MissionItem>,
     horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
-    onSeeAllClick: () -> Unit,
+    onSeeAllClick: (() -> Unit)? = null,
     onOpenGame: (String) -> Unit
 ) {
+    var isExpanded by remember { mutableStateOf(false) }
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -5216,6 +5220,7 @@ fun MissionsOverviewCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .animateContentSize()
                     .padding(14.dp)
             ) {
                 Row(
@@ -5242,18 +5247,20 @@ fun MissionsOverviewCard(
                         }
                     }
 
-                    // Clean "SEE ALL MISSIONS" button in top-right corner
+                    // Toggle expand/collapse button on Homescreen directly
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(CyberSurfaceVariant)
                             .border(1.dp, CyberCardBorder, RoundedCornerShape(8.dp))
-                            .clickable { onSeeAllClick() }
+                            .clickable {
+                                isExpanded = !isExpanded
+                            }
                             .padding(horizontal = 8.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "SEE ALL MISSIONS",
+                            text = if (isExpanded) "SHOW LESS" else "SEE ALL MISSIONS",
                             color = NeonYellow,
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Bold,
@@ -5261,27 +5268,30 @@ fun MissionsOverviewCard(
                         )
                         Spacer(modifier = Modifier.width(3.dp))
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
-                            contentDescription = "See All Missions",
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isExpanded) "Show Less" else "See All Missions",
                             tint = NeonYellow,
-                            modifier = Modifier.size(11.dp)
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Prioritize "Play 1 Hour a Day" and top daily missions
-                val dailyMissionsToShow = missionsList.filter { it.category == "DAILY" }.take(4)
+                // If expanded show all missions, otherwise show top 4
+                val missionsToShow = if (isExpanded) missionsList else missionsList.take(4)
 
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    dailyMissionsToShow.forEach { mission ->
+                    missionsToShow.forEach { mission ->
                         val isCompleted = mission.currentCount >= mission.targetCount
                         val progressFraction = (mission.currentCount.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
                         val unitLabel = if (mission.title.contains("Hour")) " mins" else ""
+                        val tokensReward = mission.rewardTokens.coerceAtMost(5)
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpenGame(mission.title) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
@@ -5337,7 +5347,7 @@ fun MissionsOverviewCard(
 
                             Spacer(modifier = Modifier.width(10.dp))
 
-                            // Reward Token Badge
+                            // Reward Token Badge (Max 5 tokens)
                             Box(
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(8.dp))
@@ -5346,12 +5356,37 @@ fun MissionsOverviewCard(
                                     .padding(horizontal = 6.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    text = "⚡ +${mission.rewardTokens}",
+                                    text = "⚡ +$tokensReward",
                                     color = NeonYellow,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold
                                 )
                             }
+                        }
+                    }
+                }
+
+                if (isExpanded) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, CyberCardBorder, RoundedCornerShape(10.dp))
+                            .clickable { isExpanded = false }
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("COLLAPSE MISSIONS", color = TextSecondary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Collapse",
+                                tint = TextSecondary,
+                                modifier = Modifier.size(13.dp)
+                            )
                         }
                     }
                 }
