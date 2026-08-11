@@ -54,6 +54,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -84,6 +85,7 @@ import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Extension
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.Home
@@ -352,6 +354,8 @@ class MainActivity : ComponentActivity() {
 fun HomeScreen() {
     val context = LocalContext.current
     var showSettingsDialog by remember { mutableStateOf(false) }
+    var showMailInboxDialog by remember { mutableStateOf(false) }
+    var showClaimSuccessDialog by remember { mutableStateOf<Int?>(null) }
     var showMathGameDialog by remember { mutableStateOf(false) }
     var showMemoryGameDialog by remember { mutableStateOf(false) }
     var showReactionGameDialog by remember { mutableStateOf(false) }
@@ -362,11 +366,9 @@ fun HomeScreen() {
     var selectedCategoryView by remember { mutableStateOf<String?>(null) }
     var selectedTab by remember { mutableStateOf("HOME") }
 
-    // User Energy Tokens & Coins state (Initial 20 Tokens & 1000 Coins Free)
-    var userTokens by rememberSaveable { mutableIntStateOf(20) }
-    var userCoins by rememberSaveable { mutableIntStateOf(1000) }
+    // User Energy Tokens state (Initial 50 Tokens Free)
+    var userTokens by rememberSaveable { mutableIntStateOf(50) }
     var showOutOfTokensDialog by remember { mutableStateOf(false) }
-    var showCoinsShopDialog by remember { mutableStateOf(false) }
     var showTokensShopDialog by remember { mutableStateOf(false) }
 
     // User Profile persistent state
@@ -384,6 +386,32 @@ fun HomeScreen() {
             .putString("user_bio", newBio)
             .putString("user_emoji", newEmoji)
             .apply()
+    }
+
+    // Mail Inbox pre-populated state
+    val mailList = remember {
+        mutableStateListOf(
+            MailItem(
+                id = "welcome_gift",
+                sender = "Game Admin 👑",
+                title = "Welcome Welcome Welcome! 🎉",
+                body = "Cyber Mind में आपका स्वागत है! दिमाग तेज़ करने वाले बेहतरीन गेम्स की इस यात्रा को शुरू करने के लिए आपका बहुत-बहुत धन्यवाद।\n\nआपके पहले डाउनलोड के अवसर पर हमारी तरफ से एक विशेष उपहार स्वीकार करें:\n🎁 +50 Power Tokens\n\nनीचे दिए गए CLAIM GIFT बटन पर क्लिक करके अपना मुफ़्त उपहार अभी प्राप्त करें! खेलें, सीखें और लीडरबोर्ड पर राज करें!",
+                timestamp = "Just Now",
+                coinsReward = 0,
+                tokensReward = 50,
+                isRead = false,
+                isClaimed = false
+            ),
+            MailItem(
+                id = "arena_launch",
+                sender = "Team Cyber Mind ⚔️",
+                title = "Battle Arena is Live! 🏆",
+                body = "हमें आपको सूचित करते हुए बेहद खुशी हो रही है कि नया Battle Arena मोड अब पूरी तरह से चालू है!\n\nअब आप AI बॉट्स या दुनिया भर के खिलाड़ियों के साथ रीयल-टाइम में मुकाबला कर सकते हैं। अपनी गति और सटीकता साबित करें और शानदार पुरस्कार जीतें।",
+                timestamp = "2 hours ago",
+                isRead = false,
+                isClaimed = false
+            )
+        )
     }
 
     // Helper to start a game by deducting 1 token or showing out-of-tokens alert
@@ -517,23 +545,23 @@ fun HomeScreen() {
     // Top-level Shared Missions List State
     val missionsList = remember {
         mutableStateListOf(
-            MissionItem("m1", "DAILY", "Play 3 Brain Games", "Play any 3 brain training games today", "🧠", 200, 2, 3, 1, false),
-            MissionItem("m2", "DAILY", "Enter Battle Arena", "Play a match in Battle Arena mode", "⚔️", 300, 3, 1, 0, false),
-            MissionItem("m3", "DAILY", "Math Master 100+ Score", "Score at least 100 points in Math Challenge", "🔢", 250, 0, 1, 0, false),
-            MissionItem("m4", "DAILY", "Speed Reflex Hit", "Complete 1 speed reflex test under 300ms", "⚡", 200, 2, 1, 1, false),
-            MissionItem("m5", "DAILY", "Connect 5 Dots", "Connect 5 dots in the Dot Connect puzzle", "🧩", 150, 0, 5, 2, false),
-            MissionItem("m6", "DAILY", "Defeat AI in Tic-Tac-Toe", "Win 1 match against AI bot", "🤖", 200, 1, 1, 0, false),
-            MissionItem("m7", "DAILY", "Arrow Click Reflex 0.2s", "Hit target arrow within 0.2 seconds", "🏹", 180, 0, 1, 0, false),
-            MissionItem("m8", "DAILY", "Watch Video Bonus", "Claim free coins bonus from store", "🎬", 500, 0, 1, 0, false),
-            MissionItem("m13", "DAILY", "Play 1 Hour a Day", "Spend 60 minutes playing brain training games", "⏰", 350, 2, 60, 45, false),
-            MissionItem("m14", "DAILY", "Daily Brain Trainer", "Keep your cognitive focus active", "🎯", 150, 1, 15, 8, false),
-            MissionItem("m15", "DAILY", "Pro Gamer Streak", "Win 5 matches in any category", "🏅", 400, 3, 5, 3, false),
-            MissionItem("m16", "DAILY", "Infinite Reflex", "Tap 50 target red dots successfully", "🔴", 250, 1, 50, 32, false),
-            MissionItem("m9", "ACHIEVEMENT", "Reach Level 5 Master", "Gain total 5,000 XP to reach Level 5", "👑", 1000, 10, 5, 1, false),
-            MissionItem("m10", "ACHIEVEMENT", "Maintain 3-Day Win Streak", "Win at least 1 game for 3 consecutive days", "🔥", 800, 5, 3, 1, false),
-            MissionItem("m11", "ACHIEVEMENT", "Play 10 Tournaments", "Participate in 10 Battle Tournaments", "🏆", 1500, 0, 10, 2, false),
-            MissionItem("m12", "ACHIEVEMENT", "Coin Collector 2,000", "Accumulate 2,000 total Coins in balance", "🪙", 500, 0, 2000, 1000, false),
-            MissionItem("m17", "ACHIEVEMENT", "Master Mind Champion", "Earn 3,500 total Brain XP", "🧬", 600, 4, 3500, 1250, false)
+            MissionItem("m1", "DAILY", "Play 3 Brain Games", "Play any 3 brain training games today", "🧠", 0, 2, 3, 1, false),
+            MissionItem("m2", "DAILY", "Enter Battle Arena", "Play a match in Battle Arena mode", "⚔️", 0, 3, 1, 0, false),
+            MissionItem("m3", "DAILY", "Math Master 100+ Score", "Score at least 100 points in Math Challenge", "🔢", 0, 4, 1, 0, false),
+            MissionItem("m4", "DAILY", "Speed Reflex Hit", "Complete 1 speed reflex test under 300ms", "⚡", 0, 2, 1, 1, false),
+            MissionItem("m5", "DAILY", "Connect 5 Dots", "Connect 5 dots in the Dot Connect puzzle", "🧩", 0, 2, 5, 2, false),
+            MissionItem("m6", "DAILY", "Defeat AI in Tic-Tac-Toe", "Win 1 match against AI bot", "🤖", 0, 3, 1, 0, false),
+            MissionItem("m7", "DAILY", "Arrow Click Reflex 0.2s", "Hit target arrow within 0.2 seconds", "🏹", 0, 2, 1, 0, false),
+            MissionItem("m8", "DAILY", "Watch Video Bonus", "Claim free tokens bonus from store", "🎬", 0, 5, 1, 0, false),
+            MissionItem("m13", "DAILY", "Play 1 Hour a Day", "Spend 60 minutes playing brain training games", "⏰", 0, 4, 60, 45, false),
+            MissionItem("m14", "DAILY", "Daily Brain Trainer", "Keep your cognitive focus active", "🎯", 0, 2, 15, 8, false),
+            MissionItem("m15", "DAILY", "Pro Gamer Streak", "Win 5 matches in any category", "🏅", 0, 5, 5, 3, false),
+            MissionItem("m16", "DAILY", "Infinite Reflex", "Tap 50 target red dots successfully", "🔴", 0, 3, 50, 32, false),
+            MissionItem("m9", "ACHIEVEMENT", "Reach Level 5 Master", "Gain total 5,000 XP to reach Level 5", "👑", 0, 10, 5, 1, false),
+            MissionItem("m10", "ACHIEVEMENT", "Maintain 3-Day Win Streak", "Win at least 1 game for 3 consecutive days", "🔥", 0, 8, 3, 1, false),
+            MissionItem("m11", "ACHIEVEMENT", "Play 10 Tournaments", "Participate in 10 Battle Tournaments", "🏆", 0, 12, 10, 2, false),
+            MissionItem("m12", "ACHIEVEMENT", "Token Collector 50", "Accumulate 50 total Tokens in balance", "⚡", 0, 10, 50, 20, false),
+            MissionItem("m17", "ACHIEVEMENT", "Master Mind Champion", "Earn 3,500 total Brain XP", "🧬", 0, 8, 3500, 1250, false)
         )
     }
 
@@ -582,134 +610,6 @@ fun HomeScreen() {
         )
     }
 
-    if (showCoinsShopDialog) {
-        AlertDialog(
-            onDismissRequest = { showCoinsShopDialog = false },
-            containerColor = CyberSurface,
-            titleContentColor = TextPrimary,
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("🪙", fontSize = 22.sp)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("COIN STORE", fontWeight = FontWeight.Black, fontSize = 16.sp, color = NeonGold)
-                }
-            },
-            text = {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Current Balance: $userCoins Coins 🪙",
-                        color = TextPrimary,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "Coins are required to enter Battle Tournaments and unlock special rewards!",
-                        color = TextSecondary,
-                        fontSize = 11.sp
-                    )
-
-                    // Option 1: Watch Ad for Free Coins
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, NeonCyan, RoundedCornerShape(12.dp))
-                            .clickable {
-                                userCoins += 500
-                                Toast.makeText(context, "🎬 Ad Watched! +500 Free Coins Added! 🪙", Toast.LENGTH_LONG).show()
-                                showCoinsShopDialog = false
-                            },
-                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🎬", fontSize = 18.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text("WATCH SPONSORED AD", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text("Get +500 Coins for Free", color = TextMuted, fontSize = 9.sp)
-                                }
-                            }
-                            Text("FREE", color = NeonGreen, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                        }
-                    }
-
-                    // Option 2: Daily Bonus
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, NeonGold, RoundedCornerShape(12.dp))
-                            .clickable {
-                                userCoins += 300
-                                Toast.makeText(context, "🎁 Daily Bonus Claimed! +300 Coins! 🪙", Toast.LENGTH_LONG).show()
-                                showCoinsShopDialog = false
-                            },
-                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🎁", fontSize = 18.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text("DAILY BONUS REWARD", color = NeonGold, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text("Claim +300 Free Coins", color = TextMuted, fontSize = 9.sp)
-                                }
-                            }
-                            Text("CLAIM", color = NeonGold, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                        }
-                    }
-
-                    // Option 3: Mega Coin Pack
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, NeonPurpleBright, RoundedCornerShape(12.dp))
-                            .clickable {
-                                userCoins += 2000
-                                Toast.makeText(context, "👑 Mega Pack Claimed! +2000 Coins! 🪙", Toast.LENGTH_LONG).show()
-                                showCoinsShopDialog = false
-                            },
-                        colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("👑", fontSize = 18.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Column {
-                                    Text("MEGA COIN PACK", color = NeonPurpleBright, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text("Get +2000 Coins Instant", color = TextMuted, fontSize = 9.sp)
-                                }
-                            }
-                            Text("GET", color = NeonPurpleBright, fontWeight = FontWeight.Black, fontSize = 11.sp)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showCoinsShopDialog = false }) {
-                    Text("CLOSE", color = TextMuted, fontWeight = FontWeight.Bold)
-                }
-            }
-        )
-    }
-
     if (showTokensShopDialog) {
         AlertDialog(
             onDismissRequest = { showTokensShopDialog = false },
@@ -728,7 +628,7 @@ fun HomeScreen() {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(
-                        text = "Current Power: $userTokens/20 Tokens ⚡",
+                        text = "Current Power: $userTokens/50 Tokens ⚡",
                         color = TextPrimary,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold
@@ -746,7 +646,7 @@ fun HomeScreen() {
                             .clip(RoundedCornerShape(12.dp))
                             .border(1.dp, NeonYellow, RoundedCornerShape(12.dp))
                             .clickable {
-                                userTokens = (userTokens + 10).coerceAtMost(20)
+                                userTokens = (userTokens + 10).coerceAtMost(50)
                                 Toast.makeText(context, "⚡ Ad Watched! +10 Power Tokens Restored!", Toast.LENGTH_LONG).show()
                                 showTokensShopDialog = false
                             },
@@ -769,21 +669,16 @@ fun HomeScreen() {
                         }
                     }
 
-                    // Option 2: Full Refill with Coins
+                    // Option 2: Daily Token Gift
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
                             .border(1.dp, NeonCyan, RoundedCornerShape(12.dp))
                             .clickable {
-                                if (userCoins >= 100) {
-                                    userCoins -= 100
-                                    userTokens = 20
-                                    Toast.makeText(context, "⚡ Full Refill! 20 Power Tokens Restored (-100 Coins)", Toast.LENGTH_LONG).show()
-                                    showTokensShopDialog = false
-                                } else {
-                                    Toast.makeText(context, "🪙 Not enough coins! Need 100 coins.", Toast.LENGTH_SHORT).show()
-                                }
+                                userTokens = (userTokens + 15).coerceAtMost(50)
+                                Toast.makeText(context, "🎁 Daily Bonus Claimed! +15 Power Tokens!", Toast.LENGTH_LONG).show()
+                                showTokensShopDialog = false
                             },
                         colors = CardDefaults.cardColors(containerColor = CyberSurfaceVariant)
                     ) {
@@ -793,14 +688,14 @@ fun HomeScreen() {
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("🪙", fontSize = 18.sp)
+                                Text("🎁", fontSize = 18.sp)
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Column {
-                                    Text("INSTANT FULL REFILL", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    Text("Refill to Max 20 Tokens", color = TextMuted, fontSize = 9.sp)
+                                    Text("FREE DAILY CLAIM", color = NeonCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    Text("Claim +15 Power Tokens", color = TextMuted, fontSize = 9.sp)
                                 }
                             }
-                            Text("100 🪙", color = NeonGold, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                            Text("FREE", color = NeonGreen, fontWeight = FontWeight.Black, fontSize = 11.sp)
                         }
                     }
                 }
@@ -815,6 +710,88 @@ fun HomeScreen() {
 
     if (showSettingsDialog) {
         GameSettingsDialog(onDismiss = { showSettingsDialog = false })
+    }
+
+    if (showMailInboxDialog) {
+        MailInboxDialog(
+            onDismiss = { showMailInboxDialog = false },
+            mailList = mailList,
+            onClaimReward = { mail ->
+                val index = mailList.indexOfFirst { it.id == mail.id }
+                if (index != -1) {
+                    val updatedMail = mailList[index].copy(isRead = true, isClaimed = true)
+                    mailList[index] = updatedMail
+                    userTokens += mail.tokensReward
+                    showClaimSuccessDialog = mail.tokensReward
+                }
+            },
+            onMarkAsRead = { mail ->
+                val index = mailList.indexOfFirst { it.id == mail.id }
+                if (index != -1 && !mailList[index].isRead) {
+                    mailList[index] = mailList[index].copy(isRead = true)
+                }
+            }
+        )
+    }
+
+    if (showClaimSuccessDialog != null) {
+        val claimedTokens = showClaimSuccessDialog!!
+        Dialog(onDismissRequest = { showClaimSuccessDialog = null }) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .clip(RoundedCornerShape(20.dp))
+                    .border(1.5.dp, NeonGreen, RoundedCornerShape(20.dp)),
+                colors = CardDefaults.cardColors(containerColor = CyberSurface)
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("🎁", fontSize = 48.sp)
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "REWARD CLAIMED!",
+                        color = NeonGreen,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "मुफ़्त उपहार सफलतापूर्वक आपके खाते में जोड़ दिया गया है!",
+                        color = TextPrimary,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(20.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (claimedTokens > 0) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("⚡", fontSize = 28.sp)
+                                Text("+$claimedTokens", color = NeonYellow, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                Text("Tokens", color = TextMuted, fontSize = 10.sp)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = { showClaimSuccessDialog = null },
+                        colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("अद्भुत! (AWESOME)", color = Color.Black, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
     }
 
     if (showMathGameDialog) {
@@ -847,6 +824,9 @@ fun HomeScreen() {
 
     if (showDotConnectGameDialog) {
         DotConnectGameDialog(
+            userTokens = userTokens,
+            onTokensChange = { newTokens -> userTokens = newTokens },
+            onOpenTokensShop = { showTokensShopDialog = true },
             onDismiss = { showDotConnectGameDialog = false },
             onGameFinished = { record ->
                 gameHistory.add(0, record)
@@ -895,7 +875,7 @@ fun HomeScreen() {
                 onTabClick = { tab ->
                     selectedTab = tab
                     selectedCategoryView = null
-                    if (tab != "HOME" && tab != "GAMES" && tab != "PROGRESS" && tab != "BATTLE" && tab != "PROFILE") {
+                    if (tab != "HOME" && tab != "GAMES" && tab != "PROGRESS" && tab != "ARENA" && tab != "PROFILE") {
                         showSoonToast()
                     }
                 }
@@ -928,11 +908,10 @@ fun HomeScreen() {
                 TopBarSection(
                     horizontalPadding = adaptiveHorizontalPadding,
                     onClick = { selectedTab = "PROFILE" },
-                    onSettingsClick = { showSettingsDialog = true },
+                    onMailClick = { showMailInboxDialog = true },
+                    hasUnreadMails = mailList.any { !it.isRead },
                     tokens = userTokens,
-                    coins = userCoins,
                     onTokensClick = { showTokensShopDialog = true },
-                    onCoinsClick = { showCoinsShopDialog = true },
                     userName = userName,
                     userEmoji = userEmoji
                 )
@@ -971,7 +950,7 @@ fun HomeScreen() {
                                 )
                             }
                         }
-                        "BATTLE" -> {
+                        "ARENA" -> {
                             // Dedicated 2-Player Battle Arena View
                             Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
                                 BattleTabScreen(
@@ -979,38 +958,18 @@ fun HomeScreen() {
                                         gameHistory.add(0, record)
                                     },
                                     onTryStartGame = tryStartGame,
-                                    userCoins = userCoins,
-                                    onCoinsChange = { newCoins -> userCoins = newCoins },
-                                    onOpenCoinsShop = { showCoinsShopDialog = true }
+                                    userTokens = userTokens,
+                                    onTokensChange = { newTokens -> userTokens = newTokens },
+                                    onOpenTokensShop = { showTokensShopDialog = true }
                                 )
                             }
                         }
                         "PROGRESS" -> {
-                            // Dedicated Progress & Rewards View
+                            // Dedicated Progress & Match History View
                             Box(modifier = Modifier.padding(horizontal = adaptiveHorizontalPadding)) {
-                                MissionsTabScreen(
-                                    userCoins = userCoins,
-                                    userTokens = userTokens,
-                                    missionsList = missionsList,
+                                ProgressHistoryTabScreen(
                                     gameHistory = gameHistory,
-                                    onRewardClaimed = { coins, tokens ->
-                                        userCoins += coins
-                                        userTokens = (userTokens + tokens).coerceAtMost(20)
-                                    },
-                                    onOpenGame = { gameTitle ->
-                                        // Match mission title to actual game prestart
-                                        val lowercaseTitle = gameTitle.lowercase()
-                                        when {
-                                            lowercaseTitle.contains("math") -> launchPreStartMathGame()
-                                            lowercaseTitle.contains("reflex") || lowercaseTitle.contains("target") -> launchPreStartRedDot()
-                                            lowercaseTitle.contains("arrow") -> launchPreStartArrowClick()
-                                            lowercaseTitle.contains("dot") || lowercaseTitle.contains("connect") -> launchPreStartDotConnect()
-                                            lowercaseTitle.contains("tic") || lowercaseTitle.contains("toe") -> launchPreStartTicTacToe()
-                                            lowercaseTitle.contains("memory") -> launchPreStartMemoryGame()
-                                            lowercaseTitle.contains("bottle") -> launchPreStartFallingBottles()
-                                            else -> launchPreStartMathGame()
-                                        }
-                                    }
+                                    userTokens = userTokens
                                 )
                             }
                         }
@@ -1038,7 +997,28 @@ fun HomeScreen() {
                                 onClick = { selectedTab = "PROGRESS" }
                             )
 
-                            // 2. Homescreen Daily Missions Overview Card
+                            // 2. Swipeable Offer Banners Carousel
+                            OfferBannersCarousel(
+                                horizontalPadding = adaptiveHorizontalPadding,
+                                onClick = { launchPreStartMathGame() }
+                            )
+
+                            // 3. Brain Games Section Grid
+                            TrainYourBrainSection(
+                                horizontalPadding = adaptiveHorizontalPadding,
+                                onClick = showSoonToast,
+                                onMathClick = { launchPreStartMathGame() },
+                                onMemoryClick = { launchPreStartMemoryGame() },
+                                onReactionClick = { launchPreStartRedDot() },
+                                onDotConnectClick = { launchPreStartDotConnect() },
+                                onTicTacToeClick = { launchPreStartTicTacToe() },
+                                onCategoryClick = { categoryKey ->
+                                    selectedCategoryView = categoryKey
+                                },
+                                onFallingBottlesClick = { launchPreStartFallingBottles() }
+                            )
+
+                            // 4. Homescreen Daily Missions Overview Card
                             MissionsOverviewCard(
                                 missionsList = missionsList,
                                 horizontalPadding = adaptiveHorizontalPadding,
@@ -1058,27 +1038,6 @@ fun HomeScreen() {
                                 }
                             )
 
-                            // 3. Swipeable Offer Banners Carousel
-                            OfferBannersCarousel(
-                                horizontalPadding = adaptiveHorizontalPadding,
-                                onClick = { launchPreStartMathGame() }
-                            )
-
-                            // Brain Games Section Grid
-                            TrainYourBrainSection(
-                                horizontalPadding = adaptiveHorizontalPadding,
-                                onClick = showSoonToast,
-                                onMathClick = { launchPreStartMathGame() },
-                                onMemoryClick = { launchPreStartMemoryGame() },
-                                onReactionClick = { launchPreStartRedDot() },
-                                onDotConnectClick = { launchPreStartDotConnect() },
-                                onTicTacToeClick = { launchPreStartTicTacToe() },
-                                onCategoryClick = { categoryKey ->
-                                    selectedCategoryView = categoryKey
-                                },
-                                onFallingBottlesClick = { launchPreStartFallingBottles() }
-                            )
-
                         }
                     }
                 }
@@ -1093,11 +1052,10 @@ fun HomeScreen() {
 fun TopBarSection(
     horizontalPadding: androidx.compose.ui.unit.Dp = 16.dp,
     onClick: () -> Unit,
-    onSettingsClick: () -> Unit = onClick,
-    tokens: Int = 20,
-    coins: Int = 1000,
+    onMailClick: () -> Unit = onClick,
+    hasUnreadMails: Boolean = false,
+    tokens: Int = 50,
     onTokensClick: () -> Unit = {},
-    onCoinsClick: () -> Unit = {},
     userName: String = "Sameer Choudhary",
     userEmoji: String = "👑"
 ) {
@@ -1156,40 +1114,11 @@ fun TopBarSection(
             }
         }
 
-        // Coins, Energy & Settings
+        // Energy & Settings
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Coins Pill
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .background(CyberSurfaceVariant)
-                    .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp))
-                    .clickable { onCoinsClick() }
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "🪙",
-                    fontSize = 12.sp
-                )
-                Spacer(modifier = Modifier.width(3.dp))
-                Text(
-                    text = "$coins",
-                    color = NeonGold,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = " +",
-                    color = NeonCyan,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-
             // Energy Pill
             Row(
                 modifier = Modifier
@@ -1221,23 +1150,34 @@ fun TopBarSection(
                 )
             }
 
-            // Settings Gear Icon
+            // Mail Icon (Inbox)
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
                     .background(CyberSurfaceVariant)
                     .border(1.dp, CyberCardBorder, CircleShape)
-                    .clickable { onSettingsClick() }
-                    .testTag("settings_button"),
+                    .clickable { onMailClick() }
+                    .testTag("mail_button"),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = TextSecondary,
+                    imageVector = Icons.Default.Email,
+                    contentDescription = "Inbox",
+                    tint = NeonCyan,
                     modifier = Modifier.size(16.dp)
                 )
+
+                if (hasUnreadMails) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .align(Alignment.TopEnd)
+                            .padding(top = 2.dp, end = 2.dp)
+                            .clip(CircleShape)
+                            .background(Color.Red)
+                    )
+                }
             }
         }
     }
@@ -1778,7 +1718,7 @@ fun BattleArenaHomeCard(
                                 }
                             }
                             Text(
-                                text = "2 to 100 Players Pass & Play • Win 500 Coins!",
+                                text = "2 to 100 Players Pass & Play • Win Power Tokens!",
                                 color = TextSecondary,
                                 fontSize = 11.sp,
                                 maxLines = 1,
@@ -3127,22 +3067,6 @@ fun GamePosterGraphic(
             }
         }
 
-        // Top Badge Pill Corner (New/Hot/Popular/Multiplayer)
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 8.dp, end = 8.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .background(badgeBgColor)
-                .padding(horizontal = 6.dp, vertical = 2.dp)
-        ) {
-            Text(
-                text = badgeText,
-                color = Color.Black,
-                fontSize = 8.5.sp,
-                fontWeight = FontWeight.Black
-            )
-        }
     }
 }
 
@@ -4367,7 +4291,7 @@ fun BottomNavBar(
     val navItems = listOf(
         NavItem("HOME", Icons.Default.Home, selectedTab == "HOME"),
         NavItem("GAMES", Icons.Outlined.SportsEsports, selectedTab == "GAMES"),
-        NavItem("BATTLE", Icons.Default.MilitaryTech, selectedTab == "BATTLE"),
+        NavItem("ARENA", Icons.Default.MilitaryTech, selectedTab == "ARENA"),
         NavItem("PROGRESS", Icons.Default.Star, selectedTab == "PROGRESS"),
         NavItem("PROFILE", Icons.Outlined.Person, selectedTab == "PROFILE")
     )
@@ -4824,6 +4748,308 @@ fun GameSettingsDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
+fun MailInboxDialog(
+    onDismiss: () -> Unit,
+    mailList: androidx.compose.runtime.snapshots.SnapshotStateList<MailItem>,
+    onClaimReward: (MailItem) -> Unit,
+    onMarkAsRead: (MailItem) -> Unit
+) {
+    var expandedMailId by remember { mutableStateOf<String?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+            contentAlignment = Alignment.Center
+        ) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth(0.92f)
+                    .fillMaxHeight(0.85f)
+                    .padding(vertical = 12.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .border(1.5.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(24.dp)),
+                colors = CardDefaults.cardColors(containerColor = CyberSurface)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(18.dp)
+                ) {
+                    // Header
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(NeonCyan.copy(alpha = 0.15f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Email,
+                                    contentDescription = "Inbox",
+                                    tint = NeonCyan,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "INBOX & MESSAGES",
+                                color = TextPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                        }
+
+                        IconButton(
+                            onClick = onDismiss,
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(CyberSurfaceVariant)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Close",
+                                tint = TextPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = CyberCardBorder, thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    if (mailList.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text("✉️", fontSize = 48.sp)
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "NO NEW MESSAGES",
+                                    color = TextMuted,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Your inbox is empty. Check back later!",
+                                    color = TextSecondary,
+                                    fontSize = 11.sp,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(mailList) { mail ->
+                                val isExpanded = expandedMailId == mail.id
+                                val cardBorderColor = if (isExpanded) NeonCyan else if (!mail.isRead) NeonPurpleBright else CyberCardBorder
+                                val cardBgColor = if (isExpanded) CyberSurfaceVariant else CyberSurface
+
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .border(1.dp, cardBorderColor, RoundedCornerShape(16.dp))
+                                        .clickable {
+                                            if (isExpanded) {
+                                                expandedMailId = null
+                                            } else {
+                                                expandedMailId = mail.id
+                                                onMarkAsRead(mail)
+                                            }
+                                        },
+                                    colors = CardDefaults.cardColors(containerColor = cardBgColor)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(14.dp)
+                                    ) {
+                                        // Mail Header Row
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.Top
+                                        ) {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                // Unread Indicator Dot
+                                                if (!mail.isRead) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(8.dp)
+                                                            .clip(CircleShape)
+                                                            .background(NeonPurpleBright)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                }
+
+                                                Text(
+                                                    text = mail.sender,
+                                                    color = if (!mail.isRead) NeonCyan else TextPrimary,
+                                                    fontSize = 13.sp,
+                                                    fontWeight = if (!mail.isRead) FontWeight.ExtraBold else FontWeight.Bold,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+
+                                            Text(
+                                                text = mail.timestamp,
+                                                color = TextMuted,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.height(4.dp))
+
+                                        // Subject
+                                        Text(
+                                            text = mail.title,
+                                            color = TextPrimary,
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = if (isExpanded) Int.MAX_VALUE else 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        // Preview / Full Body Text
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        Text(
+                                            text = mail.body,
+                                            color = TextSecondary,
+                                            fontSize = 11.5.sp,
+                                            lineHeight = 16.sp,
+                                            maxLines = if (isExpanded) Int.MAX_VALUE else 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+
+                                        // Mini reward badge if collapsed & has reward unclaimed
+                                        if (!isExpanded && mail.tokensReward > 0 && !mail.isClaimed) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Row(
+                                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Text("🎁 Rewards: ", color = NeonGold, fontSize = 9.5.sp, fontWeight = FontWeight.Bold)
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(NeonYellow.copy(alpha = 0.15f))
+                                                        .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                ) {
+                                                    Text("⚡ +${mail.tokensReward}", color = NeonYellow, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+
+                                        // Full Detail Expanded Buttons
+                                        if (isExpanded) {
+                                            if (mail.tokensReward > 0) {
+                                                Spacer(modifier = Modifier.height(14.dp))
+                                                HorizontalDivider(color = CyberCardBorder.copy(alpha = 0.4f), thickness = 1.dp)
+                                                Spacer(modifier = Modifier.height(10.dp))
+
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    // Rewards lists
+                                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        if (mail.tokensReward > 0) {
+                                                            Row(
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                                modifier = Modifier
+                                                                    .clip(RoundedCornerShape(8.dp))
+                                                                    .background(CyberSurfaceVariant)
+                                                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                                                            ) {
+                                                                Text("⚡", fontSize = 12.sp)
+                                                                Spacer(modifier = Modifier.width(4.dp))
+                                                                Text("${mail.tokensReward}", color = NeonYellow, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if (mail.isClaimed) {
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            modifier = Modifier
+                                                                .clip(RoundedCornerShape(8.dp))
+                                                                .background(Color.Gray.copy(alpha = 0.2f))
+                                                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Default.Check,
+                                                                contentDescription = "Claimed",
+                                                                tint = Color.Gray,
+                                                                modifier = Modifier.size(12.dp)
+                                                            )
+                                                            Spacer(modifier = Modifier.width(4.dp))
+                                                            Text(
+                                                                text = "CLAIMED",
+                                                                color = Color.Gray,
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        }
+                                                    } else {
+                                                        Button(
+                                                            onClick = { onClaimReward(mail) },
+                                                            colors = ButtonDefaults.buttonColors(containerColor = NeonGreen),
+                                                            shape = RoundedCornerShape(10.dp),
+                                                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 4.dp),
+                                                            modifier = Modifier.height(32.dp)
+                                                        ) {
+                                                            Text(
+                                                                text = "CLAIM GIFT",
+                                                                color = Color.Black,
+                                                                fontSize = 11.sp,
+                                                                fontWeight = FontWeight.Black
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 fun SettingSwitchRow(
     title: String,
     subtitle: String,
@@ -4888,6 +5114,18 @@ fun SettingSwitchRow(
         )
     }
 }
+
+data class MailItem(
+    val id: String = java.util.UUID.randomUUID().toString(),
+    val sender: String,
+    val title: String,
+    val body: String,
+    val timestamp: String,
+    val coinsReward: Int = 0,
+    val tokensReward: Int = 0,
+    val isRead: Boolean = false,
+    val isClaimed: Boolean = false
+)
 
 data class MathQuestion(
     val questionText: String,
@@ -4966,11 +5204,11 @@ fun MissionsOverviewCard(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(18.dp))
                 .border(
                     width = 1.dp,
                     color = CyberCardBorder,
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(18.dp)
                 )
                 .testTag("homescreen_missions_card"),
             colors = CardDefaults.cardColors(containerColor = CyberSurface)
@@ -4986,49 +5224,61 @@ fun MissionsOverviewCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎯", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "DAILY MISSIONS",
-                            color = TextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
-                        )
+                        Text("🎯", fontSize = 18.sp)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "DAILY MISSIONS",
+                                color = TextPrimary,
+                                fontSize = 13.5.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "Complete tasks to earn Power Tokens!",
+                                color = TextSecondary,
+                                fontSize = 10.sp
+                            )
+                        }
                     }
 
+                    // Clean "SEE ALL MISSIONS" button in top-right corner
                     Row(
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
-                            .background(NeonCyan.copy(alpha = 0.15f))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, CyberCardBorder, RoundedCornerShape(8.dp))
                             .clickable { onSeeAllClick() }
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "SEE ALL",
-                            color = NeonCyan,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "SEE ALL MISSIONS",
+                            color = NeonYellow,
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 0.3.sp
                         )
-                        Spacer(modifier = Modifier.width(2.dp))
+                        Spacer(modifier = Modifier.width(3.dp))
                         Icon(
                             imageVector = Icons.Default.ArrowForward,
                             contentDescription = "See All Missions",
-                            tint = NeonCyan,
+                            tint = NeonYellow,
                             modifier = Modifier.size(11.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                val dailyMissionsToShow = missionsList.filter { it.category == "DAILY" }.take(3)
+                // Prioritize "Play 1 Hour a Day" and top daily missions
+                val dailyMissionsToShow = missionsList.filter { it.category == "DAILY" }.take(4)
 
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     dailyMissionsToShow.forEach { mission ->
                         val isCompleted = mission.currentCount >= mission.targetCount
                         val progressFraction = (mission.currentCount.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
+                        val unitLabel = if (mission.title.contains("Hour")) " mins" else ""
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -5036,12 +5286,13 @@ fun MissionsOverviewCard(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .size(32.dp)
+                                    .size(34.dp)
                                     .clip(CircleShape)
-                                    .background(CyberSurfaceVariant),
+                                    .background(CyberSurfaceVariant)
+                                    .border(1.dp, NeonYellow.copy(alpha = 0.3f), CircleShape),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text(mission.icon, fontSize = 15.sp)
+                                Text(mission.icon, fontSize = 16.sp)
                             }
 
                             Spacer(modifier = Modifier.width(10.dp))
@@ -5061,25 +5312,44 @@ fun MissionsOverviewCard(
                                         overflow = TextOverflow.Ellipsis,
                                         modifier = Modifier.weight(1f)
                                     )
-                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "${mission.currentCount}/${mission.targetCount}",
+                                        text = "${mission.currentCount}/${mission.targetCount}$unitLabel",
                                         color = if (isCompleted) NeonGreen else NeonCyan,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold
                                     )
                                 }
 
-                                Spacer(modifier = Modifier.height(3.dp))
+                                Spacer(modifier = Modifier.height(4.dp))
 
+                                // Individual Progress Fillbar
                                 LinearProgressIndicator(
                                     progress = { progressFraction },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(4.dp)
-                                        .clip(RoundedCornerShape(2.dp)),
-                                    color = if (mission.isClaimed) Color.Gray else if (isCompleted) NeonGreen else NeonCyan,
+                                        .height(5.dp)
+                                        .clip(RoundedCornerShape(3.dp)),
+                                    color = if (mission.isClaimed) Color.Gray else if (isCompleted) NeonGreen else NeonYellow,
                                     trackColor = CyberSurfaceVariant
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(10.dp))
+
+                            // Reward Token Badge
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(NeonYellow.copy(alpha = 0.15f))
+                                    .border(1.dp, NeonYellow.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                                    .padding(horizontal = 6.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "⚡ +${mission.rewardTokens}",
+                                    color = NeonYellow,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.ExtraBold
                                 )
                             }
                         }
@@ -5174,32 +5444,44 @@ fun GameHistoryVerticalBox(record: GameHistoryRecord) {
 }
 
 @Composable
-fun MissionsTabScreen(
-    userCoins: Int,
-    userTokens: Int,
-    missionsList: androidx.compose.runtime.snapshots.SnapshotStateList<MissionItem>,
+fun ProgressHistoryTabScreen(
     gameHistory: List<GameHistoryRecord>,
-    onRewardClaimed: (coins: Int, tokens: Int) -> Unit,
-    onOpenGame: (String) -> Unit
+    userTokens: Int = 0
 ) {
-    val context = LocalContext.current
-    var selectedCategory by remember { mutableStateOf("ALL") }
+    var selectedFilter by remember { mutableStateOf("ALL") }
 
-    val filteredMissions = when (selectedCategory) {
-        "DAILY" -> missionsList.filter { it.category == "DAILY" }
-        "ACHIEVEMENT" -> missionsList.filter { it.category == "ACHIEVEMENT" }
-        else -> missionsList
+    val filteredHistory = remember(selectedFilter, gameHistory.size) {
+        when (selectedFilter) {
+            "SOLO" -> gameHistory.filter { !it.gameName.contains("Battle", ignoreCase = true) && !it.gameName.contains("Arena", ignoreCase = true) }
+            "ARENA" -> gameHistory.filter { it.gameName.contains("Battle", ignoreCase = true) || it.gameName.contains("Arena", ignoreCase = true) }
+            else -> gameHistory
+        }
     }
+
+    val totalMatches = gameHistory.size
+    val totalBrainXp = gameHistory.sumOf { it.score }
+    val avgAccuracy = if (gameHistory.isNotEmpty()) {
+        val accList = gameHistory.mapNotNull { it.accuracyText.replace("%", "").trim().toIntOrNull() }
+        if (accList.isNotEmpty()) "${accList.average().toInt()}%" else "90%"
+    } else "0%"
+    val maxStreak = gameHistory.maxOfOrNull { it.highestStreak }?.let { "$it Days" } ?: "0 Days"
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // Top Header Card: History & Performance Stats Overview
         Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp)),
+                .border(
+                    width = 1.dp,
+                    brush = Brush.horizontalGradient(
+                        listOf(NeonGreen.copy(alpha = 0.5f), NeonCyan.copy(alpha = 0.35f), CyberCardBorder)
+                    ),
+                    shape = RoundedCornerShape(20.dp)
+                ),
             colors = CardDefaults.cardColors(containerColor = CyberSurface)
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -5213,40 +5495,49 @@ fun MissionsTabScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(NeonGold.copy(alpha = 0.2f)),
+                                .background(NeonGreen.copy(alpha = 0.2f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("🎯", fontSize = 20.sp)
+                            Text("📊", fontSize = 20.sp)
                         }
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                            Text("PROGRESS & MISSIONS", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                            Text("Complete tasks & earn Coins & Power Tokens!", color = TextSecondary, fontSize = 11.sp)
+                            Text("GAME MATCH HISTORY", color = TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                            Text("Saved records & performance log", color = TextSecondary, fontSize = 11.sp)
                         }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(NeonYellow.copy(alpha = 0.15f))
+                            .border(1.dp, NeonYellow.copy(alpha = 0.4f), RoundedCornerShape(10.dp))
+                            .padding(horizontal = 8.dp, vertical = 4.dp)
+                    ) {
+                        Text("⚡ $userTokens Tokens", color = NeonYellow, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                     }
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
 
+                // Stats Row
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(CyberSurfaceVariant)
-                            .border(1.dp, NeonGold.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                            .padding(10.dp)
+                            .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🪙", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("YOUR COINS", color = TextMuted, fontSize = 9.sp)
-                                Text("$userCoins", color = NeonGold, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                            }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🎮 MATCHES", color = TextMuted, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("$totalMatches", color = NeonCyan, fontSize = 15.sp, fontWeight = FontWeight.Black)
                         }
                     }
 
@@ -5255,277 +5546,245 @@ fun MissionsTabScreen(
                             .weight(1f)
                             .clip(RoundedCornerShape(12.dp))
                             .background(CyberSurfaceVariant)
-                            .border(1.dp, NeonYellow.copy(alpha = 0.4f), RoundedCornerShape(12.dp))
-                            .padding(10.dp)
+                            .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("⚡", fontSize = 18.sp)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Column {
-                                Text("POWER TOKENS", color = TextMuted, fontSize = 9.sp)
-                                Text("$userTokens/20", color = NeonYellow, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                            }
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🏆 BRAIN XP", color = TextMuted, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("$totalBrainXp", color = NeonYellow, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🎯 ACCURACY", color = TextMuted, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(avgAccuracy, color = NeonPurpleBright, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(CyberSurfaceVariant)
+                            .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
+                            .padding(8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("🔥 STREAK", color = TextMuted, fontSize = 8.5.sp, fontWeight = FontWeight.Bold)
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(maxStreak, color = Color(0xFFFF7A00), fontSize = 14.sp, fontWeight = FontWeight.Black)
                         }
                     }
                 }
             }
         }
 
+        // Category Filter Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf("ALL", "DAILY", "ACHIEVEMENT").forEach { cat ->
-                val isSel = (selectedCategory == cat)
-                val labelText = when (cat) {
-                    "DAILY" -> "📅 DAILY"
-                    "ACHIEVEMENT" -> "🏆 ACHIEVEMENTS"
-                    else -> "🌟 ALL MISSIONS"
+            listOf("ALL", "SOLO", "ARENA").forEach { filterKey ->
+                val isSel = (selectedFilter == filterKey)
+                val labelText = when (filterKey) {
+                    "SOLO" -> "🎮 SOLO GAMES"
+                    "ARENA" -> "⚔️ ARENA BATTLES"
+                    else -> "📜 ALL MATCHES (${gameHistory.size})"
                 }
                 Box(
                     modifier = Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
                         .background(if (isSel) NeonGreen else CyberSurfaceVariant)
-                        .clickable { selectedCategory = cat }
-                        .padding(vertical = 8.dp),
+                        .border(1.dp, if (isSel) NeonGreen else CyberCardBorder, RoundedCornerShape(12.dp))
+                        .clickable { selectedFilter = filterKey }
+                        .padding(vertical = 9.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = labelText,
                         color = if (isSel) Color.Black else TextSecondary,
-                        fontSize = 11.sp,
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            filteredMissions.forEach { mission ->
-                val progressFraction = (mission.currentCount.toFloat() / mission.targetCount.toFloat()).coerceIn(0f, 1f)
-                val isCompleted = mission.currentCount >= mission.targetCount
-
-                Card(
+        // Match Records Vertical List
+        if (filteredHistory.isEmpty()) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .border(1.dp, CyberCardBorder, RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(containerColor = CyberSurface)
+            ) {
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(
-                            1.dp,
-                            if (mission.isClaimed) CyberCardBorder else if (isCompleted) NeonGreen else CyberCardBorder,
-                            RoundedCornerShape(16.dp)
-                        ),
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (mission.isClaimed) CyberSurfaceVariant.copy(alpha = 0.5f) else CyberSurface
-                    )
+                        .padding(vertical = 32.dp, horizontal = 16.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("🎮", fontSize = 32.sp)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "No saved match history found!",
+                            color = TextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Play games from Home or Arena tab to record your results here.",
+                            color = TextSecondary,
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                filteredHistory.forEach { record ->
+                    val isWinOrMaster = record.titleTag.contains("WIN", ignoreCase = true) || record.titleTag.contains("MASTER", ignoreCase = true)
+                    val cardBorderBrush = Brush.horizontalGradient(
+                        listOf(
+                            if (isWinOrMaster) NeonGreen.copy(alpha = 0.55f) else NeonCyan.copy(alpha = 0.5f),
+                            CyberCardBorder
+                        )
+                    )
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(16.dp))
+                            .border(1.dp, cardBorderBrush, RoundedCornerShape(16.dp)),
+                        colors = CardDefaults.cardColors(containerColor = CyberSurface)
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Row(
                                 modifier = Modifier.weight(1f),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                // Dynamic Game Icon
+                                val gameIcon = when {
+                                    record.gameName.contains("Math", ignoreCase = true) -> "🔢"
+                                    record.gameName.contains("Red", ignoreCase = true) || record.gameName.contains("Target", ignoreCase = true) -> "🔴"
+                                    record.gameName.contains("Arrow", ignoreCase = true) -> "🏹"
+                                    record.gameName.contains("Bottle", ignoreCase = true) -> "🍾"
+                                    record.gameName.contains("Color", ignoreCase = true) -> "🎨"
+                                    record.gameName.contains("Dot", ignoreCase = true) -> "🔮"
+                                    record.gameName.contains("Tic", ignoreCase = true) -> "❌⭕"
+                                    record.gameName.contains("Battle", ignoreCase = true) || record.gameName.contains("Arena", ignoreCase = true) -> "⚔️"
+                                    else -> "🎮"
+                                }
+
                                 Box(
                                     modifier = Modifier
-                                        .size(36.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            if (mission.isClaimed) Color.Gray.copy(alpha = 0.2f)
-                                            else NeonCyan.copy(alpha = 0.2f)
-                                        ),
+                                        .size(42.dp)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(CyberSurfaceVariant)
+                                        .border(1.dp, NeonCyan.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(mission.icon, fontSize = 18.sp)
+                                    Text(gameIcon, fontSize = 20.sp)
                                 }
-                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Spacer(modifier = Modifier.width(12.dp))
+
                                 Column {
-                                    Text(
-                                        text = mission.title,
-                                        color = if (mission.isClaimed) TextMuted else TextPrimary,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = mission.description,
-                                        color = TextSecondary,
-                                        fontSize = 10.sp
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = record.gameName,
+                                            color = TextPrimary,
+                                            fontSize = 13.5.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(
+                                                    if (record.titleTag.contains("WIN", ignoreCase = true) || record.titleTag.contains("MASTER", ignoreCase = true)) NeonGreen.copy(alpha = 0.15f)
+                                                    else NeonCyan.copy(alpha = 0.15f)
+                                                )
+                                                .padding(horizontal = 5.dp, vertical = 2.dp)
+                                        ) {
+                                            Text(
+                                                text = record.titleTag,
+                                                color = if (record.titleTag.contains("WIN", ignoreCase = true) || record.titleTag.contains("MASTER", ignoreCase = true)) NeonGreen else NeonCyan,
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(3.dp))
+
+                                    Row(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = "⏱️ ${record.timestamp}",
+                                            color = TextMuted,
+                                            fontSize = 10.sp
+                                        )
+                                        Text(
+                                            text = "🎯 ${record.accuracyText}",
+                                            color = TextSecondary,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        if (record.highestStreak > 0) {
+                                            Text(
+                                                text = "🔥 ${record.highestStreak} Streak",
+                                                color = Color(0xFFFF7A00),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
                                 }
                             }
 
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (mission.rewardCoins > 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(NeonGold.copy(alpha = 0.15f))
-                                            .padding(horizontal = 6.dp, vertical = 3.dp)
-                                    ) {
-                                        Text("🪙 +${mission.rewardCoins}", color = NeonGold, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                                if (mission.rewardTokens > 0) {
-                                    Box(
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(NeonYellow.copy(alpha = 0.15f))
-                                            .padding(horizontal = 6.dp, vertical = 3.dp)
-                                    ) {
-                                        Text("⚡ +${mission.rewardTokens}", color = NeonYellow, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                    }
-                                }
-                            }
-                        }
+                            Spacer(modifier = Modifier.width(8.dp))
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(
-                                        text = if (mission.isClaimed) "CLAIMED" else "PROGRESS",
-                                        color = TextMuted,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Text(
-                                        text = "${mission.currentCount}/${mission.targetCount}",
-                                        color = if (isCompleted) NeonGreen else NeonCyan,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                                Spacer(modifier = Modifier.height(4.dp))
-                                LinearProgressIndicator(
-                                    progress = { progressFraction },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(6.dp)
-                                        .clip(RoundedCornerShape(3.dp)),
-                                    color = if (mission.isClaimed) Color.Gray else if (isCompleted) NeonGreen else NeonCyan,
-                                    trackColor = CyberSurfaceVariant
+                            // Score / XP Badge
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    text = "+${record.score} XP",
+                                    color = NeonYellow,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black
+                                )
+                                Text(
+                                    text = "⭐ ${record.stars}/5",
+                                    color = TextMuted,
+                                    fontSize = 10.sp
                                 )
                             }
-
-                            if (mission.isClaimed) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(Color.Gray.copy(alpha = 0.2f))
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("✓ CLAIMED", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            } else if (isCompleted) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(
-                                            Brush.horizontalGradient(listOf(NeonYellow, NeonGreen))
-                                        )
-                                        .clickable {
-                                            mission.isClaimed = true
-                                            onRewardClaimed(mission.rewardCoins, mission.rewardTokens)
-                                            Toast.makeText(
-                                                context,
-                                                "🎁 Reward Claimed! +${mission.rewardCoins} Coins 🪙 ${if (mission.rewardTokens > 0) "+${mission.rewardTokens} Tokens ⚡" else ""}",
-                                                Toast.LENGTH_LONG
-                                            ).show()
-                                        }
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text("CLAIM REWARD 🎁", color = Color.Black, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                                }
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(CyberSurfaceVariant)
-                                        .border(1.dp, NeonCyan.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
-                                        .clickable { onOpenGame(mission.title) }
-                                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                                ) {
-                                    Text("PLAY NOW ▶", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(10.dp))
-
-        // Recent Game History Section (Vertical long, curved boxes)
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .border(1.dp, CyberCardBorder, RoundedCornerShape(20.dp)),
-            colors = CardDefaults.cardColors(containerColor = CyberSurface)
-        ) {
-            Column(modifier = Modifier.padding(14.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎮", fontSize = 16.sp)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "RECENT PLAY HISTORY",
-                            color = NeonGreen,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
-                        )
-                    }
-                    Text(
-                        text = "${gameHistory.size} Records",
-                        color = TextMuted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                if (gameHistory.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 20.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No games played yet. Start playing to see your history!",
-                            color = TextMuted,
-                            fontSize = 11.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        gameHistory.forEach { record ->
-                            GameHistoryVerticalBox(record)
                         }
                     }
                 }
@@ -5656,9 +5915,9 @@ fun generateBattleQuestionData(gameId: String): BattleQuestionData {
 fun BattleTabScreen(
     onSaveBattleHistory: (GameHistoryRecord) -> Unit,
     onTryStartGame: (((() -> Unit)) -> Unit)? = null,
-    userCoins: Int = 1000,
-    onCoinsChange: (Int) -> Unit = {},
-    onOpenCoinsShop: () -> Unit = {}
+    userTokens: Int = 20,
+    onTokensChange: (Int) -> Unit = {},
+    onOpenTokensShop: () -> Unit = {}
 ) {
     val context = LocalContext.current
 
@@ -5743,13 +6002,13 @@ fun BattleTabScreen(
     }
 
     val startNewTournament = {
-        val entryFee = 100
-        if (userCoins < entryFee) {
-            Toast.makeText(context, "🪙 Entry Fee: 100 Coins required! You have $userCoins Coins.", Toast.LENGTH_LONG).show()
-            onOpenCoinsShop()
+        val entryFee = 2
+        if (userTokens < entryFee) {
+            Toast.makeText(context, "⚡ Entry Fee: 2 Power Tokens required! You have $userTokens Tokens.", Toast.LENGTH_LONG).show()
+            onOpenTokensShop()
         } else {
-            onCoinsChange(userCoins - entryFee)
-            Toast.makeText(context, "⚔️ Tournament Started! 100 Coins Entry Fee deducted.", Toast.LENGTH_SHORT).show()
+            onTokensChange(userTokens - entryFee)
+            Toast.makeText(context, "⚔️ Tournament Started! 2 Power Tokens Entry Fee deducted.", Toast.LENGTH_SHORT).show()
             if (onTryStartGame != null && !isBattleActive) {
                 onTryStartGame(launchBattleMatch)
             } else {
@@ -5967,19 +6226,19 @@ fun BattleTabScreen(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(CyberSurfaceVariant)
-                            .border(1.dp, NeonGold.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                            .border(1.dp, NeonYellow.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                             .padding(horizontal = 10.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("🪙", fontSize = 12.sp)
+                            Text("⚡", fontSize = 12.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("ENTRY FEE:", color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("100 COINS", color = NeonGold, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text("2 TOKENS", color = NeonYellow, fontSize = 10.sp, fontWeight = FontWeight.Black)
                         }
-                        Text("WINNER PRIZE: 🪙 500 COINS", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text("WINNER PRIZE: ⚡ 10 TOKENS", color = NeonCyan, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -6102,7 +6361,7 @@ fun BattleTabScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "👑 CHAMPION: ${winner?.name ?: "Player 1"} (+500 COINS PRIZE!)",
+                            text = "👑 CHAMPION: ${winner?.name ?: "Player 1"} (+10 TOKENS PRIZE!)",
                             color = NeonGold,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black
@@ -9731,83 +9990,7 @@ fun ProfileTabScreen(
             }
         }
 
-        // 3. Career Stats Grid (100% Real Data from gameHistory)
-        Text(
-            text = "PLAYER CAREER STATS",
-            color = TextPrimary,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 0.5.sp
-        )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(CyberSurfaceVariant)
-                    .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🎮 MATCHES", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text("$totalMatches", color = NeonCyan, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(CyberSurfaceVariant)
-                    .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🏆 BRAIN XP", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text("$totalBrainXp", color = NeonGold, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(CyberSurfaceVariant)
-                    .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🎯 ACCURACY", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(avgAccuracy, color = NeonPurpleBright, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                }
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(CyberSurfaceVariant)
-                    .border(1.dp, CyberCardBorder, RoundedCornerShape(12.dp))
-                    .padding(10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("🔥 STREAK", color = TextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(maxStreak, color = Color(0xFFFF7A00), fontSize = 15.sp, fontWeight = FontWeight.Black)
-                }
-            }
-        }
 
         // 4. Battle Arena Summary Card (Real Data)
         Card(
@@ -10468,9 +10651,13 @@ object ColorFlowLevelGenerator {
 
 @Composable
 fun DotConnectGameDialog(
+    userTokens: Int = 50,
+    onTokensChange: (Int) -> Unit = {},
+    onOpenTokensShop: () -> Unit = {},
     onDismiss: () -> Unit,
     onGameFinished: (GameHistoryRecord) -> Unit = {}
 ) {
+    val context = LocalContext.current
     DisposableEffect(Unit) {
         RelaxingBgmPlayer.startBgm()
         onDispose {
@@ -10515,6 +10702,62 @@ fun DotConnectGameDialog(
         val head = path.first()
         val tail = path.last()
         return (head == pair.dotA && tail == pair.dotB) || (head == pair.dotB && tail == pair.dotA)
+    }
+
+    // Hint helper: BFS path solver for pair
+    fun findPathForPair(pair: ColorFlowPair, level: ColorFlowLevel, existingPaths: Map<Int, List<Pair<Int, Int>>>): List<Pair<Int, Int>>? {
+        val start = pair.dotA
+        val target = pair.dotB
+        val size = level.gridSize
+
+        val blocked = mutableSetOf<Pair<Int, Int>>()
+        level.pairs.filter { it.colorId != pair.colorId }.forEach {
+            blocked.add(it.dotA)
+            blocked.add(it.dotB)
+        }
+        existingPaths.filter { it.key != pair.colorId }.values.forEach { pList ->
+            blocked.addAll(pList)
+        }
+
+        val queue = java.util.ArrayDeque<List<Pair<Int, Int>>>()
+        val visited = mutableSetOf<Pair<Int, Int>>()
+        queue.add(listOf(start))
+        visited.add(start)
+
+        while (!queue.isEmpty()) {
+            val currPath = queue.poll() ?: break
+            val last = currPath.last()
+            if (last == target) return currPath
+
+            val neighbors = listOf(
+                last.first - 1 to last.second,
+                last.first + 1 to last.second,
+                last.first to last.second - 1,
+                last.first to last.second + 1
+            )
+            for (n in neighbors) {
+                if (n.first in 0 until size && n.second in 0 until size) {
+                    if (!blocked.contains(n) && !visited.contains(n)) {
+                        visited.add(n)
+                        queue.add(currPath + n)
+                    }
+                }
+            }
+        }
+
+        val fallback = mutableListOf<Pair<Int, Int>>()
+        var currR = start.first
+        var currC = start.second
+        fallback.add(currR to currC)
+        while (currR != target.first) {
+            if (currR < target.first) currR++ else currR--
+            fallback.add(currR to currC)
+        }
+        while (currC != target.second) {
+            if (currC < target.second) currC++ else currC--
+            fallback.add(currR to currC)
+        }
+        return fallback
     }
 
     // Check win condition
@@ -10566,7 +10809,7 @@ fun DotConnectGameDialog(
                     .align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Top Header Row
+                // Top Header Row (Exit on left, Level in center, Hint & Restart on right)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -10574,64 +10817,95 @@ fun DotConnectGameDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color(0xFF00E5FF).copy(alpha = 0.2f))
-                                    .padding(horizontal = 8.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = "LEVEL $levelNumber",
-                                    color = Color(0xFF00E5FF),
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "${level.gridSize}x${level.gridSize} Grid",
-                                color = Color(0xFF94A3B8),
-                                fontSize = 12.sp
-                            )
-                        }
-                        Text(
-                            text = "COLOR FLOW CONNECT",
-                            color = Color.White,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
+                    // Left: Exit Button
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1E293B))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Exit",
+                            tint = Color.White
                         )
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Center: LEVEL Title
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = "COLOR FLOW",
+                            color = Color(0xFF94A3B8),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF00E5FF).copy(alpha = 0.2f))
+                                .padding(horizontal = 12.dp, vertical = 4.dp)
+                        ) {
+                            Text(
+                                text = "LEVEL $levelNumber",
+                                color = Color(0xFF00E5FF),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
+                    }
+
+                    // Right: Hint & Restart Buttons
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Hint Button (-1 Token)
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFFFB300))
+                                .clickable {
+                                    if (userTokens < 1) {
+                                        Toast.makeText(context, "⚡ Need 1 Power Token for Hint!", Toast.LENGTH_SHORT).show()
+                                        onOpenTokensShop()
+                                    } else {
+                                        val unconnected = level.pairs.firstOrNull { !isPairConnected(it) }
+                                        if (unconnected == null) {
+                                            Toast.makeText(context, "All pairs are already connected!", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            val hintPath = findPathForPair(unconnected, level, paths)
+                                            if (hintPath != null) {
+                                                paths[unconnected.colorId] = hintPath
+                                                onTokensChange(userTokens - 1)
+                                                Toast.makeText(context, "💡 Hint Used! Connected ${unconnected.name} (-1 Token ⚡)", Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    }
+                                }
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("💡", fontSize = 14.sp)
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("HINT", color = Color.Black, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+
                         // Restart Button
                         IconButton(
                             onClick = { resetPaths() },
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(36.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFF1E293B))
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Restart",
-                                tint = Color.White
-                            )
-                        }
-
-                        // Close Button
-                        IconButton(
-                            onClick = onDismiss,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF1E293B))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = "Close",
                                 tint = Color.White
                             )
                         }
@@ -10969,45 +11243,7 @@ fun DotConnectGameDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.weight(1f))
-
-                // Bottom Level Navigation Controls
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = {
-                            if (levelNumber > 1) {
-                                levelNumber--
-                            }
-                        },
-                        enabled = levelNumber > 1,
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E293B)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("< PREV", color = Color.White, fontWeight = FontWeight.Bold)
-                    }
-
-                    Text(
-                        text = "Level $levelNumber / 10",
-                        color = Color(0xFF94A3B8),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Button(
-                        onClick = {
-                            levelNumber++
-                        },
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00E5FF)),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("NEXT >", color = Color.Black, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+            } // Close Column
 
             // Level Cleared Victory Overlay Popup
             AnimatedVisibility(
